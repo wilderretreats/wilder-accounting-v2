@@ -46,3 +46,4 @@ scripts/migration/scratch/
 # python
 __pycache__/
 *.pyc
+scripts/migration/.venv/

@@ -95,9 +95,18 @@ def main():
         )
 
     stats = {"transactions_inserted": 0, "transactions_skipped_dupe": 0, "codings_written": 0,
-              "clients_created": 0, "retreats_created": 0, "uncategorized": 0}
+              "clients_created": 0, "retreats_created": 0, "uncategorized": 0, "skipped_no_amount": 0}
 
     for row in rows:
+        if row.get("amount") is None:
+            # A handful of rows (confirmed: a "We Travel (attendee name)" list
+            # on the Fexa tab) are informational, not transactions — no
+            # amount means no money moved, and `transactions.amount` is
+            # not-null for good reason. Not a data error to fix upstream,
+            # just not a row this table should ever contain.
+            stats["skipped_no_amount"] += 1
+            continue
+
         category_type = row.get("category_type")
         category_name = row.get("category_name")
         client_name = row.get("client_name")
@@ -144,14 +153,26 @@ def main():
             retreat_id = retreats_by_key[retreat_key]
 
         category_id = categories_by_key.get((category_type, category_name)) if category_type and category_name else None
-        if category_id is None:
+
+        # Mirrors the DB's enforce_coding_retreat_consistency trigger exactly:
+        # overhead must NOT have a retreat, revenue/cogs MUST have one. A row
+        # can have a resolved category but still fail this (e.g. category is
+        # clearly "Client Payment" / revenue, but the client field was blank
+        # or unparseable so retreat_id never resolved) — those get left
+        # uncoded rather than crashing the whole load, same as any other
+        # unresolvable row.
+        can_code = bool(category_id) and (
+            (category_type == "overhead" and retreat_id is None)
+            or (category_type in ("revenue", "cogs") and retreat_id is not None)
+        )
+        if not can_code:
             stats["uncategorized"] += 1
 
         row_hash = migration_row_hash(row)
 
         if args.dry_run:
             stats["transactions_inserted"] += 1
-            if category_id:
+            if can_code:
                 stats["codings_written"] += 1
             continue
 
@@ -173,17 +194,26 @@ def main():
             .execute()
         )
 
-        if not txn_result.data:
-            # ignore_duplicates=True means an existing row returns no data —
-            # already migrated in a prior run, skip its coding too (coding
-            # is written once, at insert time, not re-applied on every run).
+        if txn_result.data:
+            stats["transactions_inserted"] += 1
+            transaction_id = txn_result.data[0]["id"]
+        else:
+            # ignore_duplicates=True means an existing row returns no data.
+            # Still look it up and fall through to the coding step below —
+            # a prior run may have inserted this transaction but crashed
+            # (or been killed) before writing its coding, and re-runs need
+            # to be able to heal that, not just skip it forever.
             stats["transactions_skipped_dupe"] += 1
-            continue
+            existing = (
+                supabase.table("transactions")
+                .select("id")
+                .eq("migration_row_hash", row_hash)
+                .single()
+                .execute()
+            )
+            transaction_id = existing.data["id"]
 
-        stats["transactions_inserted"] += 1
-        transaction_id = txn_result.data[0]["id"]
-
-        if category_id:
+        if can_code:
             supabase.table("transaction_codings").upsert(
                 {
                     "transaction_id": transaction_id,

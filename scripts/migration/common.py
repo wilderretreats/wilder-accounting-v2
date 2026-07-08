@@ -171,6 +171,27 @@ CLIENT_NAME_ALIASES: dict[str, str] = {
     "legal defense fund": "Legal Defense Fund",
     "spring street ex": "Spring Street Exchange",
     "spring street exchange": "Spring Street Exchange",
+    # Resolved with the user 2026-07-08, from scratch/client_retreat_map.csv:
+    "earth species": "Earth Species Project",
+    "earth species project": "Earth Species Project",
+    "lavi": "Lavi Industries",
+    "lavi industries": "Lavi Industries",
+    "tier": "Tier 4",
+    "tier4": "Tier 4",
+    "tier 4": "Tier 4",
+    "govini": "Govini",
+    "govini site": "Govini",
+    "govini site visit": "Govini",
+    "shoreline": "Shoreline Equity Partners",
+    "shoreline equity": "Shoreline Equity Partners",
+    "shoreline equity partners": "Shoreline Equity Partners",
+    # Cage Point and Mile Marker merged as companies; user asked to use the
+    # more recent name (Mile Marker) for all historical records.
+    "cage point | mile marker": "Mile Marker",
+    "cage point": "Mile Marker",
+    "ldf": "Legal Defense Fund",
+    "presidio": "Presidio Legal",
+    "presidio legal": "Presidio Legal",
 }
 
 
@@ -199,4 +220,4 @@ def looks_like_multiple_clients(raw_subcategory: str) -> bool:
     a shared/split charge across clients, which v1 doesn't support auto-migrating
     (matches the confirmed no-splitting decision). These go to a manual-review
     bucket instead of being silently assigned to one client."""
-    return bool(re.search(r"\s(&|and|,)\s", raw_subcategory, re.IGNORECASE))
+    return bool(re.search(r"\s(&|and|,|/)\s", raw_subcategory, re.IGNORECASE))

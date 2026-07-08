@@ -68,6 +68,10 @@ def main():
             if isinstance(subcategory_raw, str) and subcategory_raw.strip():
                 client_name, retreat_name = split_client_and_retreat_name(subcategory_raw)
                 client_name = canonical_client_name(client_name)
+                # Numbered retreats ("FMX 1") must keep their distinct name;
+                # canonical_client_name() is a no-op for those since aliases
+                # only match base names, so this is safe to apply unconditionally.
+                retreat_name = canonical_client_name(retreat_name)
             # else: left as None, will surface as an unresolvable-client row below
 
         retreat_month = to_first_of_month(row.get("retreat_month_raw"))

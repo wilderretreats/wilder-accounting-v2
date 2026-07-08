@@ -36,7 +36,19 @@ def get_supabase():
     return create_client(url, key)
 
 
-def sheet_summary_rows(wb, tab_name: str) -> list[dict]:
+MONTH_NAME_TO_NUM = {
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+}
+
+
+def sheet_summary_rows(wb, tab_name: str, year: int, revenue_col: int) -> list[dict]:
+    """revenue_col differs by tab: "2025 Summary" has columns
+    Name/Month/Revenue/Gross Profit/Margin/.../Cash Position (no quoted-vs-
+    actual split, so column 2 IS the actual revenue); "2026 Summary" has
+    Name/Month/Revenue at Pricing/Final Revenue/... (column 3 is the actual
+    "Final Revenue"). Using the same index for both silently compared our
+    migrated revenue against Gross Profit for every 2025 row."""
     if tab_name not in wb.sheetnames:
         return []
     ws = wb[tab_name]
@@ -44,10 +56,19 @@ def sheet_summary_rows(wb, tab_name: str) -> list[dict]:
     for row in ws.iter_rows(min_row=2, values_only=True):
         name = row[0]
         month = row[1]
-        final_revenue = row[3] if len(row) > 3 else None
+        final_revenue = row[revenue_col] if len(row) > revenue_col else None
         if not name or not month:
             continue
-        rows.append({"name": str(name).strip(), "month": str(month).strip(), "final_revenue": final_revenue})
+        month_num = MONTH_NAME_TO_NUM.get(str(month).strip().lower())
+        if month_num is None:
+            continue
+        retreat_month = f"{year:04d}-{month_num:02d}-01"
+        rows.append({
+            "name": str(name).strip(),
+            "month": str(month).strip(),
+            "retreat_month": retreat_month,
+            "final_revenue": final_revenue,
+        })
     return rows
 
 
@@ -55,7 +76,10 @@ def main(workbook_path: str):
     wb = openpyxl.load_workbook(workbook_path, data_only=True)
     supabase = get_supabase()
 
-    sheet_rows = sheet_summary_rows(wb, "2025 Summary") + sheet_summary_rows(wb, "2026 Summary")
+    sheet_rows = (
+        sheet_summary_rows(wb, "2025 Summary", 2025, revenue_col=2)
+        + sheet_summary_rows(wb, "2026 Summary", 2026, revenue_col=3)
+    )
 
     retreats = (
         supabase.table("retreats")
@@ -76,12 +100,14 @@ def main(workbook_path: str):
 
         client_name, retreat_name = split_client_and_retreat_name(sheet_row["name"])
         client_name = canonical_client_name(client_name)
+        retreat_name = canonical_client_name(retreat_name)  # same fix as 02_category_map.py
 
         candidate = next(
             (
                 r for r in retreats
                 if r["name"].strip() == retreat_name
                 and (r["client"]["name"] if r["client"] else "") == client_name
+                and r["retreat_month"] == sheet_row["retreat_month"]
             ),
             None,
         )
