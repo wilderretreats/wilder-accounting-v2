@@ -53,31 +53,41 @@ export async function POST(request: Request) {
     // ignore
   }
 
-  const encrypted = encryptToken(accessToken);
+  let item: { id: string; institution_name: string | null };
+  try {
+    const encrypted = encryptToken(accessToken);
 
-  const supabase = await createClient();
-  const { data: item, error } = await supabase
-    .from("plaid_items")
-    .insert({
-      institution_name: institutionName,
-      item_id: itemId,
-      access_token_encrypted: encrypted.ciphertext,
-      access_token_iv: encrypted.iv,
-      access_token_tag: encrypted.tag,
-      connected_by: authed.user.id,
-    })
-    .select()
-    .single();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("plaid_items")
+      .insert({
+        institution_name: institutionName,
+        item_id: itemId,
+        access_token_encrypted: encrypted.ciphertext,
+        access_token_iv: encrypted.iv,
+        access_token_tag: encrypted.tag,
+        connected_by: authed.user.id,
+      })
+      .select()
+      .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    item = data;
 
-  await writeAuditLog({
-    actorId: authed.user.id,
-    action: "plaid_item.connected",
-    entityType: "plaid_item",
-    entityId: item.id,
-    metadata: { institutionName },
-  });
+    await writeAuditLog({
+      actorId: authed.user.id,
+      action: "plaid_item.connected",
+      entityType: "plaid_item",
+      entityId: item.id,
+      metadata: { institutionName },
+    });
+  } catch (err) {
+    // Catches encryptToken() failures (e.g. a malformed
+    // PLAID_TOKEN_ENCRYPTION_KEY) that previously crashed this request with
+    // an opaque, bodyless 500 instead of a readable error.
+    const message = err instanceof Error ? err.message : "Failed to save bank connection";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   // Run the initial sync AFTER responding, not before — institutions with
   // many accounts/transactions (e.g. Chase's sandbox simulation has 12 fake
