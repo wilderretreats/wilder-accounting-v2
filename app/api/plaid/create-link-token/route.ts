@@ -24,6 +24,10 @@ export async function POST() {
       // Required for OAuth-based institutions (most large US banks); must be
       // registered in the Plaid dashboard's Allowed redirect URIs.
       redirect_uri: appUrl ? `${appUrl}/plaid-oauth` : undefined,
+      // Registers our webhook receiver on every Item created through this
+      // Link session — this is how Plaid learns where to send
+      // SYNC_UPDATES_AVAILABLE, not a dashboard setting.
+      webhook: appUrl ? `${appUrl}/api/plaid/webhook` : undefined,
       transactions: { days_requested: 730 },
     });
     return NextResponse.json({ linkToken: response.data.link_token });
