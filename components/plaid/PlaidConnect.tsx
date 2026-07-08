@@ -78,7 +78,8 @@ export function PlaidConnect() {
     const res = await fetch("/api/plaid/create-link-token", { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
-      setError(typeof data.error === "string" ? data.error : "Failed to start Plaid Link");
+      const detail = data.plaidError?.error_message || data.plaidError?.error_code;
+      setError(detail ? `${detail}` : typeof data.error === "string" ? data.error : "Failed to start Plaid Link");
       return;
     }
     sessionStorage.setItem(PLAID_LINK_TOKEN_STORAGE_KEY, data.linkToken);

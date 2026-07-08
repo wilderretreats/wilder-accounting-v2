@@ -32,7 +32,12 @@ export async function POST() {
     });
     return NextResponse.json({ linkToken: response.data.link_token });
   } catch (err) {
+    // Plaid's Node SDK wraps axios errors — the generic err.message is just
+    // "Request failed with status code 400" and hides Plaid's actual
+    // error_code/error_message, which is what you need to debug this.
+    const plaidError = (err as { response?: { data?: unknown } })?.response?.data;
+    console.error("Plaid linkTokenCreate failed:", JSON.stringify(plaidError ?? err));
     const message = err instanceof Error ? err.message : "Failed to create link token";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message, plaidError }, { status: 500 });
   }
 }
