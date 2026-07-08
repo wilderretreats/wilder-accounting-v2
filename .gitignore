@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# migration script output — contains real (unmasked) bank transaction data
+scripts/migration/scratch/
+
+# python
+__pycache__/
+*.pyc
