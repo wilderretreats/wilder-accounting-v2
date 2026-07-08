@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { CountryCode } from "plaid";
 import { getAuthedProfile, hasRole } from "@/lib/auth";
@@ -79,12 +79,17 @@ export async function POST(request: Request) {
     metadata: { institutionName },
   });
 
-  // Kick off an initial sync immediately so the connection feels alive
-  // rather than waiting for the next cron tick.
-  const syncResult = await syncPlaidItem(item.id);
+  // Run the initial sync AFTER responding, not before — institutions with
+  // many accounts/transactions (e.g. Chase's sandbox simulation has 12 fake
+  // accounts) can take longer than the serverless function's request
+  // timeout, which previously crashed the whole connection with an opaque
+  // 500 even though the connection itself had already succeeded. The
+  // connection doesn't need to wait on this: the item is already saved, and
+  // syncPlaidItem persists its own status/last_sync_error regardless of who
+  // calls it, same as the cron and webhook paths.
+  after(() => syncPlaidItem(item.id));
 
   return NextResponse.json({
     item: { id: item.id, institution_name: item.institution_name },
-    syncResult,
   });
 }
