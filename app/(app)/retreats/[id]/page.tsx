@@ -55,7 +55,9 @@ export default async function RetreatDetailPage({
             {retreat.ops_owner?.name && ` · Owner: ${retreat.ops_owner.name}`}
           </p>
         </div>
-        <Badge tone="neutral">{retreat.status.replace("_", " ")}</Badge>
+        <Badge tone={retreat.status === "audited" ? "green" : "neutral"}>
+          {retreat.status === "audited" ? "Audited" : "Ongoing"}
+        </Badge>
       </div>
 
       <LockControl retreatId={id} activeLock={activeLock} canUnlock={profile.role === "admin"} />

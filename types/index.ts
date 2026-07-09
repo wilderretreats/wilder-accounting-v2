@@ -50,11 +50,8 @@ export interface CategoryWithParent extends Category {
   parent_name: string | null;
 }
 
-export type RetreatStatus =
-  | "upcoming"
-  | "in_progress"
-  | "completed"
-  | "cancelled";
+/** Trigger-derived from retreat_locks (see migration 011) -- never set directly. */
+export type RetreatStatus = "ongoing" | "audited";
 
 export interface Retreat {
   id: string;

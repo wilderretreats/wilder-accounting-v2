@@ -34,9 +34,11 @@ export async function GET(
   return NextResponse.json({ retreat, summary, activeLock: activeLock ?? null });
 }
 
+// status is intentionally not patchable here -- it's trigger-derived from
+// retreat_locks (see migration 011), changed only via the lock/unlock
+// endpoints, so it can never drift from the actual lock state.
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
-  status: z.enum(["upcoming", "in_progress", "completed", "cancelled"]).optional(),
   startDate: z.string().nullable().optional(),
   endDate: z.string().nullable().optional(),
   opsOwnerId: z.string().uuid().nullable().optional(),
@@ -62,7 +64,6 @@ export async function PATCH(
   const updates: Record<string, unknown> = {};
   const d = parsed.data;
   if (d.name !== undefined) updates.name = d.name;
-  if (d.status !== undefined) updates.status = d.status;
   if (d.startDate !== undefined) updates.start_date = d.startDate;
   if (d.endDate !== undefined) updates.end_date = d.endDate;
   if (d.opsOwnerId !== undefined) updates.ops_owner_id = d.opsOwnerId;

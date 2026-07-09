@@ -8,10 +8,8 @@ import { formatCurrency, formatPercent, formatMonth } from "@/lib/utils";
 import type { RetreatStatus } from "@/types";
 
 const STATUS_TONE: Record<RetreatStatus, "neutral" | "blue" | "green" | "red"> = {
-  upcoming: "neutral",
-  in_progress: "blue",
-  completed: "green",
-  cancelled: "red",
+  ongoing: "neutral",
+  audited: "green",
 };
 
 export default async function RetreatsPage() {
@@ -63,7 +61,9 @@ export default async function RetreatsPage() {
                     <td className="py-2 pr-4 text-zinc-600">{formatMonth(r.retreat_month)}</td>
                     <td className="py-2 pr-4 text-zinc-600">{r.ops_owner?.name ?? "—"}</td>
                     <td className="py-2 pr-4">
-                      <Badge tone={STATUS_TONE[r.status as RetreatStatus]}>{r.status.replace("_", " ")}</Badge>
+                      <Badge tone={STATUS_TONE[r.status as RetreatStatus]}>
+                        {r.status === "audited" ? "Audited" : "Ongoing"}
+                      </Badge>
                     </td>
                     <td className="py-2 pr-4 text-right">{formatCurrency(s?.revenue ?? 0)}</td>
                     <td className="py-2 pr-4 text-right">{formatCurrency(s?.gross_profit ?? 0)}</td>
