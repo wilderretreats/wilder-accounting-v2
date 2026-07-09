@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { getRetreatSummary } from "@/lib/reports/queries";
 import { RetreatSummaryCard } from "@/components/retreats/RetreatSummaryCard";
 import { LockControl } from "@/components/retreats/LockControl";
+import { OwnerControl } from "@/components/retreats/OwnerControl";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, formatMonth } from "@/lib/utils";
@@ -50,10 +51,11 @@ export default async function RetreatDetailPage({
             </Link>
           </p>
           <h1 className="text-xl font-semibold text-zinc-900">{retreat.name}</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {formatMonth(retreat.retreat_month)}
-            {retreat.ops_owner?.name && ` · Owner: ${retreat.ops_owner.name}`}
-          </p>
+          <div className="mt-1 flex items-center gap-2 text-sm text-zinc-500">
+            <span>{formatMonth(retreat.retreat_month)}</span>
+            <span>·</span>
+            <OwnerControl retreatId={id} currentOwnerName={retreat.ops_owner?.name ?? null} />
+          </div>
         </div>
         <Badge tone={retreat.status === "audited" ? "green" : "neutral"}>
           {retreat.status === "audited" ? "Audited" : "Ongoing"}
