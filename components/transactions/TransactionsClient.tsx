@@ -12,9 +12,13 @@ import type { TransactionWithCoding } from "@/types";
 
 type CodedFilter = "all" | "coded" | "uncoded";
 
+const PAGE_SIZE = 200;
+
 export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilter }) {
   const [transactions, setTransactions] = useState<TransactionWithCoding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [coded, setCoded] = useState<CodedFilter>(initialCoded ?? "all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -23,16 +27,38 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
   const [showImportModal, setShowImportModal] = useState(false);
   const [autocoding, setAutocoding] = useState(false);
 
+  const fetchPage = useCallback(
+    async (offset: number) => {
+      const params = new URLSearchParams();
+      if (coded !== "all") params.set("coded", coded);
+      if (search) params.set("search", search);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
+      const res = await fetch(`/api/transactions?${params.toString()}`);
+      const data = await res.json();
+      const page: TransactionWithCoding[] = data.transactions ?? [];
+      setHasMore(page.length === PAGE_SIZE);
+      return page;
+    },
+    [coded, search]
+  );
+
+  // Resets to the first page whenever filters change -- a separate effect
+  // (rather than folding into loadMore) so "Load more" clicks don't get
+  // wiped out by this running again with a stale offset of 0.
   const loadTransactions = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (coded !== "all") params.set("coded", coded);
-    if (search) params.set("search", search);
-    const res = await fetch(`/api/transactions?${params.toString()}`);
-    const data = await res.json();
-    setTransactions(data.transactions ?? []);
+    const page = await fetchPage(0);
+    setTransactions(page);
     setLoading(false);
-  }, [coded, search]);
+  }, [fetchPage]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const page = await fetchPage(transactions.length);
+    setTransactions((prev) => [...prev, ...page]);
+    setLoadingMore(false);
+  }
 
   useEffect(() => {
     loadTransactions();
@@ -155,6 +181,14 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
           </tbody>
         </table>
       </div>
+
+      {!loading && hasMore && (
+        <div className="flex justify-center">
+          <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? "Loading…" : `Load ${PAGE_SIZE} more`}
+          </Button>
+        </div>
+      )}
 
       {activeTransaction && (
         <CodingPanel
