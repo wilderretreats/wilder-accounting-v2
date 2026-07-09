@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getMonthlyPnl } from "@/lib/reports/queries";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -22,24 +21,9 @@ export default async function DashboardPage() {
   const grossProfit = ytd.revenue - ytd.cogs;
   const margin = ytd.revenue !== 0 ? grossProfit / ytd.revenue : null;
 
-  const { count: uncodedCount } = await supabase
-    .from("transactions")
-    .select("id, transaction_codings!left(transaction_id)", { count: "exact", head: true })
-    .eq("is_deleted_by_source", false)
-    .is("transaction_codings.transaction_id", null);
-
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-zinc-900">Dashboard</h1>
-
-      {!!uncodedCount && uncodedCount > 0 && (
-        <Link
-          href="/transactions?coded=uncoded"
-          className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 hover:bg-amber-100"
-        >
-          {uncodedCount} transaction{uncodedCount === 1 ? "" : "s"} need coding →
-        </Link>
-      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Revenue YTD" value={formatCurrency(ytd.revenue)} />

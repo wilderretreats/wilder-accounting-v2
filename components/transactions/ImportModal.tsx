@@ -62,7 +62,6 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
               <label className="mb-1 block text-sm font-medium text-zinc-700">CSV file</label>
               <input
                 type="file"
-                accept=".csv"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="block w-full text-sm"
               />
