@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { CategoryPicker } from "@/components/categories/CategoryPicker";
+import { RetreatPicker } from "@/components/retreats/RetreatPicker";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { CategoryType, RetreatWithClient, TransactionWithCoding } from "@/types";
+import type { CategoryType, TransactionWithCoding } from "@/types";
 
 interface CodingPanelProps {
   transaction: TransactionWithCoding;
@@ -20,26 +21,8 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
   );
   const [retreatId, setRetreatId] = useState<string | null>(transaction.coding?.retreat_id ?? null);
   const [comment, setComment] = useState(transaction.coding?.comment ?? "");
-  const [retreats, setRetreats] = useState<RetreatWithClient[]>([]);
-  const [retreatSearch, setRetreatSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/retreats")
-      .then((r) => r.json())
-      .then((data) => setRetreats(data.retreats ?? []));
-  }, []);
-
-  const filteredRetreats = useMemo(() => {
-    const q = retreatSearch.trim().toLowerCase();
-    if (!q) return retreats;
-    return retreats.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) ||
-        (r as RetreatWithClient & { client_name?: string }).client_name?.toLowerCase().includes(q)
-    );
-  }, [retreats, retreatSearch]);
 
   const needsRetreat = categoryType === "revenue" || categoryType === "cogs";
 
@@ -134,25 +117,7 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
         {needsRetreat && (
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Retreat</label>
-            <Input
-              placeholder="Search client or retreat…"
-              value={retreatSearch}
-              onChange={(e) => setRetreatSearch(e.target.value)}
-              className="mb-2"
-            />
-            <Select value={retreatId ?? ""} onChange={(e) => setRetreatId(e.target.value || null)}>
-              <option value="" disabled>
-                Select a retreat
-              </option>
-              {filteredRetreats.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.client_name} — {r.name} ({new Date(r.retreat_month + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })})
-                </option>
-              ))}
-            </Select>
-            <p className="mt-1 text-xs text-zinc-400">
-              Don&apos;t see the retreat? Create it first on the Retreats page.
-            </p>
+            <RetreatPicker value={retreatId} onChange={setRetreatId} />
           </div>
         )}
 
