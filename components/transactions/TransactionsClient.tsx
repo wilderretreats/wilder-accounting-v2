@@ -124,7 +124,7 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
                   />
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-zinc-600">{formatDate(t.posted_date)}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-zinc-500">{t.account_label ?? t.source}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-zinc-500">{t.account_label ?? "—"}</td>
                 <td className="max-w-xs truncate px-3 py-2 text-zinc-900">{t.description}</td>
                 <td
                   className={`whitespace-nowrap px-3 py-2 text-right font-medium ${
