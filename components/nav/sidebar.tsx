@@ -12,6 +12,7 @@ const mainNav = [
   { href: "/transactions", label: "Transactions" },
   { href: "/clients", label: "Clients" },
   { href: "/retreats", label: "Retreats" },
+  { href: "/owners", label: "Owners" },
   { href: "/reports", label: "Reports" },
   { href: "/reconcile", label: "Reconcile" },
   { href: "/audit", label: "Audit Log" },

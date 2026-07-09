@@ -217,6 +217,16 @@ export interface ClientSummary {
   retreat_count: number;
 }
 
+export interface OwnerSummary {
+  ops_owner_id: string;
+  owner_name: string;
+  revenue: number;
+  cogs: number;
+  gross_profit: number;
+  margin: number | null;
+  retreat_count: number;
+}
+
 export interface MonthlyPnl {
   month: string; // ISO date, first of month
   revenue: number;

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   ClientSummary,
   MonthlyPnl,
+  OwnerSummary,
   RetreatActuals,
   RetreatSummary,
 } from "@/types";
@@ -93,6 +94,46 @@ export async function getClientSummaries(
       return {
         client_id: clientId,
         client_name: nameById.get(clientId) ?? "Unknown",
+        revenue: agg.revenue,
+        cogs: agg.cogs,
+        gross_profit,
+        margin: agg.revenue !== 0 ? gross_profit / agg.revenue : null,
+        retreat_count: agg.retreatCount,
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue);
+}
+
+/** Rolls up all of an ops owner's retreats into one row — cross-retreat view. */
+export async function getOwnerSummaries(supabase: SupabaseClient): Promise<OwnerSummary[]> {
+  const [retreatSummaries, retreatsResp, ownersResp] = await Promise.all([
+    getRetreatSummaries(supabase),
+    supabase.from("retreats").select("id, ops_owner_id"),
+    supabase.from("ops_owners").select("id, name").eq("is_active", true),
+  ]);
+
+  const ownerIdByRetreatId = new Map(
+    (retreatsResp.data ?? []).map((r) => [r.id as string, r.ops_owner_id as string | null])
+  );
+  const nameByOwnerId = new Map((ownersResp.data ?? []).map((o) => [o.id as string, o.name as string]));
+
+  const byOwner = new Map<string, { revenue: number; cogs: number; retreatCount: number }>();
+  for (const r of retreatSummaries) {
+    const ownerId = ownerIdByRetreatId.get(r.retreat_id);
+    if (!ownerId) continue; // unassigned retreats aren't attributable to anyone
+    const entry = byOwner.get(ownerId) ?? { revenue: 0, cogs: 0, retreatCount: 0 };
+    entry.revenue += r.revenue;
+    entry.cogs += r.cogs;
+    entry.retreatCount += 1;
+    byOwner.set(ownerId, entry);
+  }
+
+  return Array.from(byOwner.entries())
+    .map(([ownerId, agg]) => {
+      const gross_profit = agg.revenue - agg.cogs;
+      return {
+        ops_owner_id: ownerId,
+        owner_name: nameByOwnerId.get(ownerId) ?? "Unknown",
         revenue: agg.revenue,
         cogs: agg.cogs,
         gross_profit,
