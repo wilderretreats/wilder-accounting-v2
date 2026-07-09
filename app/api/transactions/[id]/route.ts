@@ -20,7 +20,9 @@ export async function GET(
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ transaction: { ...data, coding: data.coding?.[0] ?? null } });
+  // transaction_codings.transaction_id is the PRIMARY KEY of that table, so
+  // PostgREST returns `coding` as a plain object (or null), not an array.
+  return NextResponse.json({ transaction: data });
 }
 
 const patchSchema = z

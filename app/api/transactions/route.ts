@@ -42,34 +42,36 @@ export async function GET(request: Request) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  // coded/uncoded and retreatId filters applied post-query: the coding join
-  // above is a to-one relationship represented as an array by supabase-js,
-  // and filtering an outer-joined relationship's presence isn't expressible
-  // through the query builder without a second round trip.
+  // coded/uncoded and retreatId filters applied post-query: filtering an
+  // outer-joined relationship's presence isn't expressible through the query
+  // builder without a second round trip.
+  //
+  // transaction_codings.transaction_id is the PRIMARY KEY of that table, so
+  // PostgREST recognizes this as a genuine one-to-one relationship and
+  // returns `coding` as a plain object (or null) -- NOT an array. Treating
+  // it as an array (r.coding?.[0], r.coding.length) silently evaluates to
+  // undefined/null for every row regardless of actual coding status, which
+  // is why the UI showed every transaction as uncoded despite the database
+  // having the codings all along.
   let rows = data ?? [];
   if (coded === "uncoded") {
-    rows = rows.filter((r) => !r.coding || r.coding.length === 0);
+    rows = rows.filter((r) => !r.coding);
   } else if (coded === "coded") {
-    rows = rows.filter((r) => r.coding && r.coding.length > 0);
+    rows = rows.filter((r) => !!r.coding);
   }
   if (retreatId) {
-    rows = rows.filter((r) => r.coding?.[0]?.retreat_id === retreatId);
+    rows = rows.filter((r) => r.coding?.retreat_id === retreatId);
   }
 
   // TransactionWithCoding's contract puts category/retreat at the top level
   // (see types/index.ts) so list views don't need to reach through
   // coding?.category — flatten them here rather than leaving every consumer
-  // to do it, which is how this silently broke: three different call sites
-  // read t.category/t.retreat directly and all quietly got `undefined`.
-  const shaped = rows.map((r) => {
-    const coding = r.coding?.[0] ?? null;
-    return {
-      ...r,
-      coding,
-      category: coding?.category ?? null,
-      retreat: coding?.retreat ?? null,
-    };
-  });
+  // to do it.
+  const shaped = rows.map((r) => ({
+    ...r,
+    category: r.coding?.category ?? null,
+    retreat: r.coding?.retreat ?? null,
+  }));
 
   return NextResponse.json({ transactions: shaped });
 }
