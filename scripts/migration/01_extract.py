@@ -255,13 +255,24 @@ def main(workbook_path: str):
     # as a legacy sectioned tab (they share the same A-G column layout — the
     # audit-specific Cash Summary/rollup content lives in columns H+ and is
     # ignored here), then keep only rows whose (date, amount) aren't already
-    # present from a primary source. A tab that's fully redundant contributes
-    # nothing; a tab that's the only source for its retreat contributes
-    # everything, tagged fallback_source so it's visible in the review step.
+    # present from a primary source.
+    #
+    # FIXED (confirmed real data loss: Lithic Oct 2026's $970.70 and $100,000
+    # client payments existed only in this tab and nowhere else, but the tab
+    # was 6/8 redundant -- under the old <50%-novel-means-skip-the-whole-tab
+    # rule, those two real rows were silently discarded along with the
+    # redundant majority). Every novel row is now kept regardless of the
+    # tab's overall redundancy -- "redundant" only means zero novel rows.
+    # The risk this was originally guarding against (a "novel" row actually
+    # being a near-duplicate of a primary-tab charge rather than a real gap)
+    # is real but strictly less bad than silently dropping genuine
+    # transactions: near-duplicates get caught by a duplicate audit after
+    # the fact, but a silently dropped row has no safety net at all.
     primary_keys = {row_key(r) for r in all_rows}
     fallback_rows: list[dict] = []
     redundant_audit_tabs: list[str] = []
     fallback_source_tabs: list[str] = []
+    partially_redundant_tabs: list[str] = []
 
     for tab_name in audit_tab_names:
         ws = wb[tab_name]
@@ -269,18 +280,18 @@ def main(workbook_path: str):
         novel = [r for r in candidate_rows if row_key(r) not in primary_keys]
         if not candidate_rows:
             continue
-        if len(novel) / len(candidate_rows) < 0.5:
-            # Mostly overlaps a primary source — treat as the redundant
-            # derived copy it almost certainly is, and skip entirely (partial
-            # overlap here is more likely two similar-but-different charges
-            # than a real gap, and taking the whole tab would double-count
-            # the overlapping majority).
+        if not novel:
             redundant_audit_tabs.append(tab_name)
             continue
         for row in novel:
             row["fallback_source"] = True
         fallback_rows.extend(novel)
-        fallback_source_tabs.append(tab_name)
+        if len(novel) / len(candidate_rows) < 0.5:
+            partially_redundant_tabs.append(
+                f"{tab_name} ({len(novel)} novel of {len(candidate_rows)} total)"
+            )
+        else:
+            fallback_source_tabs.append(tab_name)
 
     all_rows.extend(fallback_rows)
 
@@ -299,16 +310,19 @@ def main(workbook_path: str):
     )
     (SCRATCH_DIR / "redundant_audit_tabs_skipped.txt").write_text("\n".join(sorted(redundant_audit_tabs)))
     (SCRATCH_DIR / "fallback_source_audit_tabs.txt").write_text("\n".join(sorted(fallback_source_tabs)))
+    (SCRATCH_DIR / "partially_redundant_tabs.txt").write_text("\n".join(sorted(partially_redundant_tabs)))
     (SCRATCH_DIR / "unrecognized_tabs.txt").write_text("\n".join(sorted(unrecognized_tabs)))
 
     print(f"Extracted {len(all_rows)} rows from {len(wb.sheetnames)} tabs.")
     print(f"  {len(redundant_audit_tabs)} derived audit/rollup tabs skipped as fully redundant "
-          f"(see scratch/redundant_audit_tabs_skipped.txt).")
+          f"(zero novel rows — see scratch/redundant_audit_tabs_skipped.txt).")
     if fallback_source_tabs:
-        print(f"  {len(fallback_rows)} rows recovered from {len(fallback_source_tabs)} audit tabs that "
-              f"had NO corresponding monthly/legacy source data (see scratch/fallback_source_audit_tabs.txt) "
-              f"— these are tagged \"fallback_source\": true in the JSON. Spot-check these specifically; "
-              f"the 50% novelty threshold used to decide 'fallback' vs 'redundant' is a heuristic, not a guarantee.")
+        print(f"  {len(fallback_rows)} rows recovered from audit tabs with novel content "
+              f"(see scratch/fallback_source_audit_tabs.txt and scratch/partially_redundant_tabs.txt) "
+              f"— these are tagged \"fallback_source\": true in the JSON. Spot-check these specifically.")
+    if partially_redundant_tabs:
+        print(f"  {len(partially_redundant_tabs)} tabs were mostly-but-not-fully redundant — their novel "
+              f"rows were still kept (see scratch/partially_redundant_tabs.txt for the exact counts).")
     if unrecognized_tabs:
         print(f"  WARNING: {len(unrecognized_tabs)} tabs didn't match any known format — "
               f"see scratch/unrecognized_tabs.txt. Nothing was extracted from these.")
