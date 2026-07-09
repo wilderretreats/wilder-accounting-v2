@@ -2,7 +2,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnerSummaries } from "@/lib/reports/queries";
 import { Card, CardBody } from "@/components/ui/card";
-import { formatCurrency, formatPercent } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+
+const YEARS = ["2025", "2026", "2027"];
 
 export default async function OwnersPage() {
   const supabase = await createClient();
@@ -24,10 +26,16 @@ export default async function OwnersPage() {
             <thead>
               <tr className="text-left text-zinc-500">
                 <th className="pb-2 pr-4">Owner</th>
-                <th className="pb-2 pr-4 text-right">Retreats</th>
-                <th className="pb-2 pr-4 text-right">Revenue (all-time)</th>
-                <th className="pb-2 pr-4 text-right">Gross Profit</th>
-                <th className="pb-2 text-right">Margin</th>
+                {YEARS.map((year) => (
+                  <th key={`${year}-retreats`} className="pb-2 pr-4 text-right">
+                    {year} Retreats
+                  </th>
+                ))}
+                {YEARS.map((year) => (
+                  <th key={`${year}-revenue`} className="pb-2 pr-4 text-right">
+                    {year} Revenue
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -40,16 +48,22 @@ export default async function OwnersPage() {
                         {o.name}
                       </Link>
                     </td>
-                    <td className="py-2 pr-4 text-right">{s?.retreat_count ?? 0}</td>
-                    <td className="py-2 pr-4 text-right">{formatCurrency(s?.revenue ?? 0)}</td>
-                    <td className="py-2 pr-4 text-right">{formatCurrency(s?.gross_profit ?? 0)}</td>
-                    <td className="py-2 text-right">{formatPercent(s?.margin ?? null)}</td>
+                    {YEARS.map((year) => (
+                      <td key={`${year}-retreats`} className="py-2 pr-4 text-right">
+                        {s?.byYear[year]?.retreatCount ?? 0}
+                      </td>
+                    ))}
+                    {YEARS.map((year) => (
+                      <td key={`${year}-revenue`} className="py-2 pr-4 text-right">
+                        {formatCurrency(s?.byYear[year]?.revenue ?? 0)}
+                      </td>
+                    ))}
                   </tr>
                 );
               })}
               {(owners ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-zinc-400">
+                  <td colSpan={7} className="py-6 text-center text-zinc-400">
                     No owners yet — assign one from a retreat&apos;s detail page.
                   </td>
                 </tr>

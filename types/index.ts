@@ -220,11 +220,8 @@ export interface ClientSummary {
 export interface OwnerSummary {
   ops_owner_id: string;
   owner_name: string;
-  revenue: number;
-  cogs: number;
-  gross_profit: number;
-  margin: number | null;
-  retreat_count: number;
+  /** Keyed by retreat_month's year, e.g. "2025" -> { revenue, retreatCount }. */
+  byYear: Record<string, { revenue: number; retreatCount: number }>;
 }
 
 export interface MonthlyPnl {

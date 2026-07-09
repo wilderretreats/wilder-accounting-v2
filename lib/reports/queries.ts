@@ -104,44 +104,47 @@ export async function getClientSummaries(
     .sort((a, b) => b.revenue - a.revenue);
 }
 
-/** Rolls up all of an ops owner's retreats into one row — cross-retreat view. */
+/**
+ * Rolls up all of an ops owner's retreats into one row, broken out by the
+ * retreat's own year (not posted-transaction date) -- matches how the
+ * Owners page groups things, since a retreat's activity can span multiple
+ * calendar years of actual bank postings but only belongs to one
+ * retreat_month.
+ */
 export async function getOwnerSummaries(supabase: SupabaseClient): Promise<OwnerSummary[]> {
   const [retreatSummaries, retreatsResp, ownersResp] = await Promise.all([
     getRetreatSummaries(supabase),
-    supabase.from("retreats").select("id, ops_owner_id"),
+    supabase.from("retreats").select("id, ops_owner_id, retreat_month"),
     supabase.from("ops_owners").select("id, name").eq("is_active", true),
   ]);
 
-  const ownerIdByRetreatId = new Map(
-    (retreatsResp.data ?? []).map((r) => [r.id as string, r.ops_owner_id as string | null])
+  const retreatMetaById = new Map(
+    (retreatsResp.data ?? []).map((r) => [
+      r.id as string,
+      { ownerId: r.ops_owner_id as string | null, year: (r.retreat_month as string).slice(0, 4) },
+    ])
   );
   const nameByOwnerId = new Map((ownersResp.data ?? []).map((o) => [o.id as string, o.name as string]));
 
-  const byOwner = new Map<string, { revenue: number; cogs: number; retreatCount: number }>();
+  const byOwner = new Map<string, Map<string, { revenue: number; retreatCount: number }>>();
   for (const r of retreatSummaries) {
-    const ownerId = ownerIdByRetreatId.get(r.retreat_id);
-    if (!ownerId) continue; // unassigned retreats aren't attributable to anyone
-    const entry = byOwner.get(ownerId) ?? { revenue: 0, cogs: 0, retreatCount: 0 };
+    const meta = retreatMetaById.get(r.retreat_id);
+    if (!meta || !meta.ownerId) continue; // unassigned retreats aren't attributable to anyone
+    const byYear = byOwner.get(meta.ownerId) ?? new Map();
+    const entry = byYear.get(meta.year) ?? { revenue: 0, retreatCount: 0 };
     entry.revenue += r.revenue;
-    entry.cogs += r.cogs;
     entry.retreatCount += 1;
-    byOwner.set(ownerId, entry);
+    byYear.set(meta.year, entry);
+    byOwner.set(meta.ownerId, byYear);
   }
 
   return Array.from(byOwner.entries())
-    .map(([ownerId, agg]) => {
-      const gross_profit = agg.revenue - agg.cogs;
-      return {
-        ops_owner_id: ownerId,
-        owner_name: nameByOwnerId.get(ownerId) ?? "Unknown",
-        revenue: agg.revenue,
-        cogs: agg.cogs,
-        gross_profit,
-        margin: agg.revenue !== 0 ? gross_profit / agg.revenue : null,
-        retreat_count: agg.retreatCount,
-      };
-    })
-    .sort((a, b) => b.revenue - a.revenue);
+    .map(([ownerId, byYear]) => ({
+      ops_owner_id: ownerId,
+      owner_name: nameByOwnerId.get(ownerId) ?? "Unknown",
+      byYear: Object.fromEntries(byYear),
+    }))
+    .sort((a, b) => a.owner_name.localeCompare(b.owner_name));
 }
 
 /**
