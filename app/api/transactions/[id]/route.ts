@@ -23,7 +23,14 @@ export async function GET(
   return NextResponse.json({ transaction: { ...data, coding: data.coding?.[0] ?? null } });
 }
 
-const patchSchema = z.object({ description: z.string().min(1) });
+const patchSchema = z
+  .object({
+    description: z.string().min(1).optional(),
+    accountLabel: z.string().trim().min(1).max(100).nullable().optional(),
+  })
+  .refine((v) => v.description !== undefined || v.accountLabel !== undefined, {
+    message: "Nothing to update",
+  });
 
 export async function PATCH(
   request: Request,
@@ -42,11 +49,19 @@ export async function PATCH(
   }
 
   const supabase = await createClient();
-  const { data: before } = await supabase.from("transactions").select("description").eq("id", id).single();
+  const { data: before } = await supabase
+    .from("transactions")
+    .select("description, account_label")
+    .eq("id", id)
+    .single();
+
+  const update: { description?: string; account_label?: string | null } = {};
+  if (parsed.data.description !== undefined) update.description = parsed.data.description;
+  if (parsed.data.accountLabel !== undefined) update.account_label = parsed.data.accountLabel;
 
   const { data, error } = await supabase
     .from("transactions")
-    .update({ description: parsed.data.description })
+    .update(update)
     .eq("id", id)
     .select()
     .single();
@@ -55,11 +70,11 @@ export async function PATCH(
 
   await writeAuditLog({
     actorId: authed.user.id,
-    action: "transaction.description_edited",
+    action: "transaction.edited",
     entityType: "transaction",
     entityId: id,
     before,
-    after: { description: parsed.data.description },
+    after: update,
   });
 
   return NextResponse.json({ transaction: data });

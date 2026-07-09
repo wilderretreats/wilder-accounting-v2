@@ -56,7 +56,20 @@ export async function GET(request: Request) {
     rows = rows.filter((r) => r.coding?.[0]?.retreat_id === retreatId);
   }
 
-  const shaped = rows.map((r) => ({ ...r, coding: r.coding?.[0] ?? null }));
+  // TransactionWithCoding's contract puts category/retreat at the top level
+  // (see types/index.ts) so list views don't need to reach through
+  // coding?.category — flatten them here rather than leaving every consumer
+  // to do it, which is how this silently broke: three different call sites
+  // read t.category/t.retreat directly and all quietly got `undefined`.
+  const shaped = rows.map((r) => {
+    const coding = r.coding?.[0] ?? null;
+    return {
+      ...r,
+      coding,
+      category: coding?.category ?? null,
+      retreat: coding?.retreat ?? null,
+    };
+  });
 
   return NextResponse.json({ transactions: shaped });
 }

@@ -21,10 +21,37 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
   );
   const [retreatId, setRetreatId] = useState<string | null>(transaction.coding?.retreat_id ?? null);
   const [comment, setComment] = useState(transaction.coding?.comment ?? "");
+  const [accountLabel, setAccountLabel] = useState(transaction.account_label ?? "");
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [accountSaved, setAccountSaved] = useState(transaction.account_label);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const needsRetreat = categoryType === "revenue" || categoryType === "cogs";
+  const accountDirty = accountLabel.trim() !== (accountSaved ?? "");
+
+  async function handleSaveAccount() {
+    setError(null);
+    setSavingAccount(true);
+    const trimmed = accountLabel.trim();
+    const res = await fetch(`/api/transactions/${transaction.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountLabel: trimmed || null }),
+    });
+    const data = await res.json();
+    setSavingAccount(false);
+
+    if (!res.ok) {
+      setError(typeof data.error === "string" ? data.error : "Failed to save account.");
+      return;
+    }
+
+    // Deliberately not calling onSaved here -- the parent's onSaved handler
+    // closes this whole panel, which would be a jarring surprise for someone
+    // who just fixed the account and still wants to code the category next.
+    setAccountSaved(trimmed || null);
+  }
 
   async function handleSave() {
     setError(null);
@@ -57,6 +84,7 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
 
     onSaved({
       ...transaction,
+      account_label: accountSaved,
       coding: data.coding,
     });
   }
@@ -90,9 +118,7 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
 
         <div className="rounded-md bg-zinc-50 p-3 text-sm">
           <p className="font-medium text-zinc-900">{transaction.description}</p>
-          <p className="mt-1 text-zinc-500">
-            {formatDate(transaction.posted_date)} · {transaction.account_label ?? transaction.source}
-          </p>
+          <p className="mt-1 text-zinc-500">{formatDate(transaction.posted_date)}</p>
           <p
             className={`mt-1 text-base font-semibold ${
               transaction.amount < 0 ? "text-red-600" : "text-emerald-700"
@@ -100,6 +126,28 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
           >
             {formatCurrency(transaction.amount)}
           </p>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-zinc-700">Account</label>
+          <div className="flex gap-2">
+            <Input
+              value={accountLabel}
+              onChange={(e) => setAccountLabel(e.target.value)}
+              placeholder="e.g. Checking or 1085"
+              className="flex-1"
+            />
+            {accountDirty && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleSaveAccount}
+                disabled={savingAccount}
+              >
+                {savingAccount ? "Saving…" : "Save"}
+              </Button>
+            )}
+          </div>
         </div>
 
         <div>
