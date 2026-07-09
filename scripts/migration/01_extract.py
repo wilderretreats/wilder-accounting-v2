@@ -51,6 +51,15 @@ def has_header_row(ws) -> dict[str, int] | None:
     row1 = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
     headers = {str(v).strip().lower(): i + 1 for i, v in enumerate(row1) if v}
     if "description" in headers and "amount" in headers:
+        # Some tabs (confirmed: MAY, JUNE, JULY) have a blank/whitespace-only
+        # header in column 1 instead of literal "ACCOUNT" text, which strips
+        # to "" and never matches headers.get("account") below -- silently
+        # dropping every account value in the whole tab. Column 1 is always
+        # the account column in this tab format regardless of its header
+        # text, so fall back to it positionally when nothing else claimed
+        # that slot.
+        if "account" not in headers and 1 not in headers.values():
+            headers["account"] = 1
         return headers
     return None
 
