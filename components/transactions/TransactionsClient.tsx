@@ -14,7 +14,13 @@ type CodedFilter = "all" | "coded" | "uncoded";
 
 const PAGE_SIZE = 200;
 
-export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilter }) {
+export function TransactionsClient({
+  initialCoded,
+  canDelete,
+}: {
+  initialCoded?: CodedFilter;
+  canDelete: boolean;
+}) {
   const [transactions, setTransactions] = useState<TransactionWithCoding[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -127,9 +133,11 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
               <Button variant="secondary" onClick={() => setShowBulkModal(true)}>
                 Code {selected.size} selected
               </Button>
-              <Button variant="danger" onClick={handleBulkDelete} disabled={bulkDeleting}>
-                {bulkDeleting ? "Deleting…" : `Delete ${selected.size} selected`}
-              </Button>
+              {canDelete && (
+                <Button variant="danger" onClick={handleBulkDelete} disabled={bulkDeleting}>
+                  {bulkDeleting ? "Deleting…" : `Delete ${selected.size} selected`}
+                </Button>
+              )}
             </>
           )}
           <Button variant="secondary" onClick={handleAutocode} disabled={autocoding}>
@@ -216,6 +224,7 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
       {activeTransaction && (
         <CodingPanel
           transaction={activeTransaction}
+          canDelete={canDelete}
           onClose={() => setActiveTransaction(null)}
           onSaved={() => {
             setActiveTransaction(null);

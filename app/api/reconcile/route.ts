@@ -16,7 +16,7 @@ const DATE_TOLERANCE_DAYS = 3;
 export async function POST(request: Request) {
   const authed = await getAuthedProfile();
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!hasRole(authed.profile, ["admin", "ops"])) {
+  if (!hasRole(authed.profile, ["admin"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

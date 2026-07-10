@@ -13,16 +13,16 @@ const mainNav = [
   { href: "/clients", label: "Clients" },
   { href: "/retreats", label: "Retreats" },
   { href: "/owners", label: "Owners" },
-  { href: "/reports", label: "Reports" },
-  { href: "/reconcile", label: "Reconcile" },
-  { href: "/audit", label: "Audit Log" },
+  { href: "/reports", label: "Reports", adminOnly: true },
+  { href: "/reconcile", label: "Reconcile", adminOnly: true },
+  { href: "/audit", label: "Audit Log", adminOnly: true },
 ];
 
 const settingsNav = [
-  { href: "/settings/bank", label: "Bank Connections" },
+  { href: "/settings/bank", label: "Bank Connections", adminOnly: true },
   { href: "/settings/categories", label: "Categories" },
   { href: "/settings/rules", label: "Auto-Coding Rules" },
-  { href: "/settings/users", label: "Users" },
+  { href: "/settings/users", label: "Users", adminOnly: true },
 ];
 
 export function Sidebar({
@@ -54,7 +54,9 @@ export function Sidebar({
 
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         <ul className="flex flex-col gap-0.5">
-          {mainNav.map((item) => (
+          {mainNav
+            .filter((item) => !item.adminOnly || role === "admin")
+            .map((item) => (
             <li key={item.href}>
               <Link
                 href={item.href}
@@ -81,7 +83,7 @@ export function Sidebar({
         {settingsOpen && (
           <ul className="flex flex-col gap-0.5">
             {settingsNav
-              .filter((item) => item.href !== "/settings/users" || role === "admin")
+              .filter((item) => !item.adminOnly || role === "admin")
               .map((item) => (
                 <li key={item.href}>
                   <Link

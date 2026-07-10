@@ -15,6 +15,13 @@ export async function requireProfile(): Promise<AuthedProfile> {
   return authed;
 }
 
+/** For Server Components/pages restricted to specific roles — redirects to /dashboard if not permitted. */
+export async function requireRole(allowed: Role[]): Promise<AuthedProfile> {
+  const authed = await requireProfile();
+  if (!hasRole(authed.profile, allowed)) redirect("/dashboard");
+  return authed;
+}
+
 /** For Route Handlers — callers decide how to respond (401 JSON, etc). */
 export async function getAuthedProfile(): Promise<AuthedProfile | null> {
   const supabase = await createClient();

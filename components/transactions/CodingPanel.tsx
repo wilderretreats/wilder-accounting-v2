@@ -10,12 +10,13 @@ import type { CategoryType, TransactionWithCoding } from "@/types";
 
 interface CodingPanelProps {
   transaction: TransactionWithCoding;
+  canDelete: boolean;
   onClose: () => void;
   onSaved: (updated: TransactionWithCoding) => void;
   onDeleted: () => void;
 }
 
-export function CodingPanel({ transaction, onClose, onSaved, onDeleted }: CodingPanelProps) {
+export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDeleted }: CodingPanelProps) {
   const [categoryId, setCategoryId] = useState<string | null>(transaction.coding?.category_id ?? null);
   const [categoryType, setCategoryType] = useState<CategoryType | null>(
     transaction.category?.type ?? null
@@ -202,15 +203,17 @@ export function CodingPanel({ transaction, onClose, onSaved, onDeleted }: Coding
               Remove
             </Button>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={handleDelete}
-            disabled={saving || deleting}
-            className="text-red-600 hover:bg-red-50"
-          >
-            {deleting ? "Deleting…" : "Delete"}
-          </Button>
+          {canDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleDelete}
+              disabled={saving || deleting}
+              className="text-red-600 hover:bg-red-50"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
