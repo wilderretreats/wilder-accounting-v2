@@ -50,8 +50,13 @@ export function parseTransactionCsv(csvText: string): ParsedCsvRow[] {
     skipEmptyLines: true,
   });
 
-  if (result.errors.length > 0) {
-    throw new Error(`CSV parse error: ${result.errors[0].message}`);
+  // FieldMismatch (ragged rows -- e.g. Chase exports with a trailing empty
+  // column) is harmless here since we only ever read named columns by
+  // header, not by position. Anything else (bad quoting, bad delimiter)
+  // means the file itself is corrupt and should still fail loudly.
+  const fatalError = result.errors.find((e) => e.type !== "FieldMismatch");
+  if (fatalError) {
+    throw new Error(`CSV parse error: ${fatalError.message}`);
   }
 
   return result.data.map((row, i) => {
