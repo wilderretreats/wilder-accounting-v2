@@ -12,6 +12,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("ops");
   const [inviting, setInviting] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -59,6 +60,19 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
       body: JSON.stringify({ isActive: !user.is_active }),
     });
     load();
+  }
+
+  async function handleResendInvite(user: Profile) {
+    setResendingId(user.id);
+    setError(null);
+    const res = await fetch(`/api/users/${user.id}/resend-invite`, { method: "POST" });
+    const data = await res.json();
+    setResendingId(null);
+    if (!res.ok) {
+      setError(typeof data.error === "string" ? data.error : "Failed to resend invite");
+      return;
+    }
+    alert(`Sent a new sign-in link to ${user.email}.`);
   }
 
   return (
@@ -117,14 +131,23 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
                     </Select>
                   </td>
                   <td className="py-2 text-right">
-                    {u.id !== currentUserId && (
+                    <div className="flex justify-end gap-3">
                       <button
-                        onClick={() => handleToggleActive(u)}
-                        className="text-xs text-zinc-400 hover:text-zinc-700"
+                        onClick={() => handleResendInvite(u)}
+                        disabled={resendingId === u.id}
+                        className="text-xs text-zinc-400 hover:text-zinc-700 disabled:opacity-50"
                       >
-                        {u.is_active ? "Deactivate" : "Reactivate"}
+                        {resendingId === u.id ? "Sending…" : "Resend invite"}
                       </button>
-                    )}
+                      {u.id !== currentUserId && (
+                        <button
+                          onClick={() => handleToggleActive(u)}
+                          className="text-xs text-zinc-400 hover:text-zinc-700"
+                        >
+                          {u.is_active ? "Deactivate" : "Reactivate"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
