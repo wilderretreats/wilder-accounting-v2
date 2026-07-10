@@ -4,6 +4,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/**
+ * Bank export filenames in this org follow `Chase<account digits>_Activity_*`
+ * (e.g. "Chase7300_Activity_20260709.csv") -- pulling the digits out lets the
+ * account label prefill itself instead of the user retyping it every import.
+ */
+function deriveAccountLabel(fileName: string): string | null {
+  const match = fileName.match(/chase\s*#?(\d{3,5})/i);
+  return match ? match[1] : null;
+}
+
 export function ImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [accountLabel, setAccountLabel] = useState("");
@@ -62,7 +72,14 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
               <label className="mb-1 block text-sm font-medium text-zinc-700">CSV file</label>
               <input
                 type="file"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const selected = e.target.files?.[0] ?? null;
+                  setFile(selected);
+                  if (selected && !accountLabel.trim()) {
+                    const derived = deriveAccountLabel(selected.name);
+                    if (derived) setAccountLabel(derived);
+                  }
+                }}
                 className="block w-full text-sm"
               />
               <p className="mt-1 text-xs text-zinc-400">

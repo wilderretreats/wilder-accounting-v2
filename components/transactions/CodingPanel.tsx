@@ -12,9 +12,10 @@ interface CodingPanelProps {
   transaction: TransactionWithCoding;
   onClose: () => void;
   onSaved: (updated: TransactionWithCoding) => void;
+  onDeleted: () => void;
 }
 
-export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps) {
+export function CodingPanel({ transaction, onClose, onSaved, onDeleted }: CodingPanelProps) {
   const [categoryId, setCategoryId] = useState<string | null>(transaction.coding?.category_id ?? null);
   const [categoryType, setCategoryType] = useState<CategoryType | null>(
     transaction.category?.type ?? null
@@ -25,6 +26,7 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
   const [savingAccount, setSavingAccount] = useState(false);
   const [accountSaved, setAccountSaved] = useState(transaction.account_label);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const needsRetreat = categoryType === "revenue" || categoryType === "cogs";
@@ -103,6 +105,21 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
     onSaved({ ...transaction, coding: null });
   }
 
+  async function handleDelete() {
+    if (!confirm("Delete this transaction? This cannot be undone.")) return;
+    setDeleting(true);
+    setError(null);
+    const res = await fetch(`/api/transactions/${transaction.id}`, { method: "DELETE" });
+    setDeleting(false);
+
+    if (!res.ok) {
+      const data = await res.json();
+      setError(typeof data.error === "string" ? data.error : "Failed to delete transaction.");
+      return;
+    }
+    onDeleted();
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
       <div
@@ -177,14 +194,23 @@ export function CodingPanel({ transaction, onClose, onSaved }: CodingPanelProps)
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="mt-auto flex gap-2 pt-4">
-          <Button onClick={handleSave} disabled={saving} className="flex-1">
+          <Button onClick={handleSave} disabled={saving || deleting} className="flex-1">
             {saving ? "Saving…" : "Save coding"}
           </Button>
           {transaction.coding && (
-            <Button variant="danger" onClick={handleUncode} disabled={saving}>
+            <Button variant="danger" onClick={handleUncode} disabled={saving || deleting}>
               Remove
             </Button>
           )}
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={handleDelete}
+            disabled={saving || deleting}
+            className="text-red-600 hover:bg-red-50"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
         </div>
       </div>
     </div>

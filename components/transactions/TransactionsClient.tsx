@@ -26,6 +26,7 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [autocoding, setAutocoding] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchPage = useCallback(
     async (offset: number) => {
@@ -78,6 +79,23 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
     );
   }
 
+  async function handleBulkDelete() {
+    if (!confirm(`Delete ${selected.size} selected transaction${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    const res = await fetch("/api/transactions/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transactionIds: Array.from(selected) }),
+    });
+    setBulkDeleting(false);
+    if (res.ok) {
+      setSelected(new Set());
+      await loadTransactions();
+    }
+  }
+
   async function handleAutocode() {
     setAutocoding(true);
     const res = await fetch("/api/transactions/autocode", { method: "POST" });
@@ -105,9 +123,14 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
         />
         <div className="ml-auto flex gap-2">
           {selected.size > 0 && (
-            <Button variant="secondary" onClick={() => setShowBulkModal(true)}>
-              Code {selected.size} selected
-            </Button>
+            <>
+              <Button variant="secondary" onClick={() => setShowBulkModal(true)}>
+                Code {selected.size} selected
+              </Button>
+              <Button variant="danger" onClick={handleBulkDelete} disabled={bulkDeleting}>
+                {bulkDeleting ? "Deleting…" : `Delete ${selected.size} selected`}
+              </Button>
+            </>
           )}
           <Button variant="secondary" onClick={handleAutocode} disabled={autocoding}>
             {autocoding ? "Auto-coding…" : "Auto-code overhead"}
@@ -195,6 +218,10 @@ export function TransactionsClient({ initialCoded }: { initialCoded?: CodedFilte
           transaction={activeTransaction}
           onClose={() => setActiveTransaction(null)}
           onSaved={() => {
+            setActiveTransaction(null);
+            loadTransactions();
+          }}
+          onDeleted={() => {
             setActiveTransaction(null);
             loadTransactions();
           }}
