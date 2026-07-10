@@ -4,6 +4,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+// Maps known account digits to a friendly name; anything not listed here
+// just falls back to the raw digits pulled from the filename.
+const ACCOUNT_NAMES_BY_DIGITS: Record<string, string> = {
+  "7300": "Checking",
+};
+
 /**
  * Bank export filenames in this org follow `Chase<account digits>_Activity_*`
  * (e.g. "Chase7300_Activity_20260709.csv") -- pulling the digits out lets the
@@ -11,7 +17,9 @@ import { Input } from "@/components/ui/input";
  */
 function deriveAccountLabel(fileName: string): string | null {
   const match = fileName.match(/chase\s*#?(\d{3,5})/i);
-  return match ? match[1] : null;
+  if (!match) return null;
+  const digits = match[1];
+  return ACCOUNT_NAMES_BY_DIGITS[digits] ?? digits;
 }
 
 export function ImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
