@@ -28,7 +28,8 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-    parsed.data.email
+    parsed.data.email,
+    { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password` }
   );
   if (inviteError || !invited.user) {
     return NextResponse.json(
