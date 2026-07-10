@@ -3,23 +3,19 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-// Maps known account digits to a friendly name; anything not listed here
-// just falls back to the raw digits pulled from the filename.
-const ACCOUNT_NAMES_BY_DIGITS: Record<string, string> = {
-  "7300": "Checking",
-};
+import { friendlyAccountLabel } from "@/lib/accounts";
 
 /**
  * Bank export filenames in this org follow `Chase<account digits>_Activity_*`
  * (e.g. "Chase7300_Activity_20260709.csv") -- pulling the digits out lets the
  * account label prefill itself instead of the user retyping it every import.
+ * This is only a fallback for exports that don't identify the account per
+ * row (see lib/csv.ts's CARD_HEADERS) -- those always win once a file is
+ * actually parsed server-side.
  */
 function deriveAccountLabel(fileName: string): string | null {
   const match = fileName.match(/chase\s*#?(\d{3,5})/i);
-  if (!match) return null;
-  const digits = match[1];
-  return ACCOUNT_NAMES_BY_DIGITS[digits] ?? digits;
+  return match ? friendlyAccountLabel(match[1]) : null;
 }
 
 export function ImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {

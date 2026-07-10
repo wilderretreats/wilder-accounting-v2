@@ -3,6 +3,7 @@ import { getAuthedProfile, hasRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { parseTransactionCsv } from "@/lib/csv";
 import { getCategoryRules, matchRule } from "@/lib/rules";
+import { friendlyAccountLabel } from "@/lib/accounts";
 
 export async function POST(request: Request) {
   const authed = await getAuthedProfile();
@@ -61,7 +62,11 @@ export async function POST(request: Request) {
     .insert(
       rows.map((r) => ({
         source: "csv" as const,
-        account_label: accountLabel || null,
+        // A per-row card column (see lib/csv.ts) always wins over the single
+        // label typed into the import form -- Chase's business-card export
+        // bundles multiple physical cards into one file, so one label per
+        // batch would be wrong for rows that belong to a different card.
+        account_label: r.accountLabel ? friendlyAccountLabel(r.accountLabel) : accountLabel || null,
         posted_date: r.date,
         description: r.description,
         amount: r.amount,
