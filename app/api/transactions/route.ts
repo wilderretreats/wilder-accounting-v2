@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAuthedProfile, hasRole } from "@/lib/auth";
+import { getAuthedProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { writeAuditLog } from "@/lib/audit";
 
 const TRANSACTION_WITH_CODING_SELECT = `
   *,
@@ -86,9 +87,6 @@ const manualTransactionSchema = z.object({
 export async function POST(request: Request) {
   const authed = await getAuthedProfile();
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!hasRole(authed.profile, ["admin", "ops"])) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const parsed = manualTransactionSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -109,5 +107,14 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await writeAuditLog({
+    actorId: authed.user.id,
+    action: "transaction.created",
+    entityType: "transaction",
+    entityId: data.id,
+    after: data,
+  });
+
   return NextResponse.json({ transaction: data }, { status: 201 });
 }

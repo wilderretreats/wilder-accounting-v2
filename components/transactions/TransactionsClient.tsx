@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CodingPanel } from "./CodingPanel";
 import { BulkCodeModal } from "./BulkCodeModal";
 import { ImportModal } from "./ImportModal";
+import { AddTransactionModal } from "./AddTransactionModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -31,6 +32,7 @@ export function TransactionsClient({
   const [activeTransaction, setActiveTransaction] = useState<TransactionWithCoding | null>(null);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [autocoding, setAutocoding] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -143,6 +145,9 @@ export function TransactionsClient({
           <Button variant="secondary" onClick={handleAutocode} disabled={autocoding}>
             {autocoding ? "Auto-coding…" : "Auto-code overhead"}
           </Button>
+          <Button variant="secondary" onClick={() => setShowAddModal(true)}>
+            Add transaction
+          </Button>
           <Button onClick={() => setShowImportModal(true)}>Import CSV</Button>
         </div>
       </div>
@@ -251,6 +256,16 @@ export function TransactionsClient({
 
       {showImportModal && (
         <ImportModal onClose={() => setShowImportModal(false)} onImported={loadTransactions} />
+      )}
+
+      {showAddModal && (
+        <AddTransactionModal
+          onClose={() => setShowAddModal(false)}
+          onAdded={() => {
+            setShowAddModal(false);
+            loadTransactions();
+          }}
+        />
       )}
     </div>
   );
