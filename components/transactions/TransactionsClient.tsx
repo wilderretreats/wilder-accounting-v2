@@ -187,7 +187,14 @@ export function TransactionsClient({
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-zinc-600">{formatDate(t.posted_date)}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-zinc-500">{t.account_label ?? "—"}</td>
-                <td className="max-w-xs truncate px-3 py-2 text-zinc-900">{t.description}</td>
+                <td className="max-w-xs truncate px-3 py-2 text-zinc-900">
+                  {t.pending && (
+                    <Badge tone="red" className="mr-1.5 align-middle">
+                      Pending
+                    </Badge>
+                  )}
+                  {t.description}
+                </td>
                 <td
                   className={`whitespace-nowrap px-3 py-2 text-right font-medium ${
                     t.amount < 0 ? "text-red-600" : "text-emerald-700"

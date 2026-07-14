@@ -86,7 +86,14 @@ export default async function RetreatDetailPage({
                   <td className="py-2 pr-4 text-zinc-600">
                     {c.transaction && formatDate(c.transaction.posted_date)}
                   </td>
-                  <td className="py-2 pr-4 text-zinc-900">{c.transaction?.description}</td>
+                  <td className="py-2 pr-4 text-zinc-900">
+                    {c.transaction?.pending && (
+                      <Badge tone="red" className="mr-1.5 align-middle">
+                        Pending
+                      </Badge>
+                    )}
+                    {c.transaction?.description}
+                  </td>
                   <td className="py-2 pr-4">
                     <Badge tone="blue">{c.category?.name}</Badge>
                   </td>

@@ -91,6 +91,8 @@ export interface Transaction {
   reconciled: boolean;
   reconciled_at: string | null;
   reconciled_by: string | null;
+  /** Placeholder for money expected but not yet received/paid. Blocks locking the retreat it's coded to. */
+  pending: boolean;
   is_deleted_by_source: boolean;
   created_at: string;
   updated_at: string;

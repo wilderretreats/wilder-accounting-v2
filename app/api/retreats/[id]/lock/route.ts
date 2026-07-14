@@ -27,6 +27,24 @@ export async function POST(
     return NextResponse.json({ error: "Retreat is already locked" }, { status: 409 });
   }
 
+  const { data: pendingCodings } = await supabase
+    .from("transaction_codings")
+    .select("transaction:transactions!inner(pending, is_deleted_by_source)")
+    .eq("retreat_id", retreatId)
+    .eq("transaction.pending", true)
+    .eq("transaction.is_deleted_by_source", false);
+
+  if (pendingCodings && pendingCodings.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Cannot lock: ${pendingCodings.length} pending transaction${
+          pendingCodings.length === 1 ? "" : "s"
+        } still coded to this retreat. Resolve them before locking.`,
+      },
+      { status: 409 }
+    );
+  }
+
   const { data: lock, error } = await supabase
     .from("retreat_locks")
     .insert({ retreat_id: retreatId, locked_by: authed.user.id })

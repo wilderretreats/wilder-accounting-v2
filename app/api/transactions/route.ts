@@ -82,6 +82,7 @@ const manualTransactionSchema = z.object({
   description: z.string().min(1),
   amount: z.number(),
   accountLabel: z.string().optional(),
+  pending: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
       description: parsed.data.description,
       amount: parsed.data.amount,
       account_label: parsed.data.accountLabel ?? null,
+      pending: parsed.data.pending ?? false,
     })
     .select()
     .single();

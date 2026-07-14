@@ -26,6 +26,8 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
   const [accountLabel, setAccountLabel] = useState(transaction.account_label ?? "");
   const [savingAccount, setSavingAccount] = useState(false);
   const [accountSaved, setAccountSaved] = useState(transaction.account_label);
+  const [pending, setPending] = useState(transaction.pending);
+  const [savingPending, setSavingPending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +56,24 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
     // closes this whole panel, which would be a jarring surprise for someone
     // who just fixed the account and still wants to code the category next.
     setAccountSaved(trimmed || null);
+  }
+
+  async function handleTogglePending(next: boolean) {
+    setError(null);
+    setSavingPending(true);
+    const res = await fetch(`/api/transactions/${transaction.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pending: next }),
+    });
+    const data = await res.json();
+    setSavingPending(false);
+
+    if (!res.ok) {
+      setError(typeof data.error === "string" ? data.error : "Failed to update pending flag.");
+      return;
+    }
+    setPending(next);
   }
 
   async function handleSave() {
@@ -88,6 +108,7 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
     onSaved({
       ...transaction,
       account_label: accountSaved,
+      pending,
       coding: data.coding,
     });
   }
@@ -103,7 +124,7 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
       setError(typeof data.error === "string" ? data.error : "Failed to remove coding.");
       return;
     }
-    onSaved({ ...transaction, coding: null });
+    onSaved({ ...transaction, pending, coding: null });
   }
 
   async function handleDelete() {
@@ -145,6 +166,20 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
             {formatCurrency(transaction.amount)}
           </p>
         </div>
+
+        <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={pending}
+            disabled={savingPending}
+            onChange={(e) => handleTogglePending(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Pending</span> — money expected but not received yet.
+            Blocks this retreat from being locked until resolved.
+          </span>
+        </label>
 
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">Account</label>

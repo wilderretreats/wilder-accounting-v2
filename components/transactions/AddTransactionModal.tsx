@@ -16,6 +16,7 @@ export function AddTransactionModal({ onClose, onAdded }: AddTransactionModalPro
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [accountLabel, setAccountLabel] = useState("");
+  const [pending, setPending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export function AddTransactionModal({ onClose, onAdded }: AddTransactionModalPro
         description: description.trim(),
         amount: parsedAmount,
         accountLabel: accountLabel.trim() || undefined,
+        pending,
       }),
     });
     const data = await res.json();
@@ -99,6 +101,20 @@ export function AddTransactionModal({ onClose, onAdded }: AddTransactionModalPro
             placeholder="e.g. Checking or 1085"
           />
         </div>
+
+        <label className="flex items-start gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={pending}
+            onChange={(e) => setPending(e.target.checked)}
+          />
+          <span>
+            This is a placeholder — money expected but not received yet (e.g. a final client
+            payment or hotel commission). Flagged transactions block the retreat from being
+            locked until resolved.
+          </span>
+        </label>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 

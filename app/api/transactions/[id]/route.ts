@@ -29,10 +29,12 @@ const patchSchema = z
   .object({
     description: z.string().min(1).optional(),
     accountLabel: z.string().trim().min(1).max(100).nullable().optional(),
+    pending: z.boolean().optional(),
   })
-  .refine((v) => v.description !== undefined || v.accountLabel !== undefined, {
-    message: "Nothing to update",
-  });
+  .refine(
+    (v) => v.description !== undefined || v.accountLabel !== undefined || v.pending !== undefined,
+    { message: "Nothing to update" }
+  );
 
 export async function PATCH(
   request: Request,
@@ -53,13 +55,14 @@ export async function PATCH(
   const supabase = await createClient();
   const { data: before } = await supabase
     .from("transactions")
-    .select("description, account_label")
+    .select("description, account_label, pending")
     .eq("id", id)
     .single();
 
-  const update: { description?: string; account_label?: string | null } = {};
+  const update: { description?: string; account_label?: string | null; pending?: boolean } = {};
   if (parsed.data.description !== undefined) update.description = parsed.data.description;
   if (parsed.data.accountLabel !== undefined) update.account_label = parsed.data.accountLabel;
+  if (parsed.data.pending !== undefined) update.pending = parsed.data.pending;
 
   const { data, error } = await supabase
     .from("transactions")
