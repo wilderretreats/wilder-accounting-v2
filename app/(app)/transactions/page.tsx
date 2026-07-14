@@ -13,7 +13,7 @@ export default async function TransactionsPage({
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-zinc-900">Transactions</h1>
-      <TransactionsClient initialCoded={initialCoded} canDelete={profile.role === "admin"} />
+      <TransactionsClient initialCoded={initialCoded} role={profile.role} />
     </div>
   );
 }

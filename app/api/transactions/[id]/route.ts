@@ -91,12 +91,29 @@ export async function DELETE(
 ) {
   const authed = await getAuthedProfile();
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!hasRole(authed.profile, ["admin"])) {
+  if (!hasRole(authed.profile, ["admin", "ops"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
   const supabase = await createClient();
+
+  // Ops can only delete transactions they (or a teammate) entered by hand --
+  // admin keeps unrestricted delete, including over real bank-fed data.
+  if (authed.profile.role === "ops") {
+    const { data: existing } = await supabase
+      .from("transactions")
+      .select("source")
+      .eq("id", id)
+      .single();
+    if (existing?.source !== "manual") {
+      return NextResponse.json(
+        { error: "Ops can only delete manually-entered transactions" },
+        { status: 403 }
+      );
+    }
+  }
+
   const { error } = await supabase
     .from("transactions")
     .update({ is_deleted_by_source: true })

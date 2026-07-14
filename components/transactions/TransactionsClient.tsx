@@ -9,19 +9,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { TransactionWithCoding } from "@/types";
+import type { Role, TransactionWithCoding } from "@/types";
 
 type CodedFilter = "all" | "coded" | "uncoded";
 
 const PAGE_SIZE = 200;
 
+/** Ops can delete transactions only when they entered them by hand -- admin can delete any. */
+function canDeleteTransaction(role: Role, transaction: TransactionWithCoding): boolean {
+  if (role === "admin") return true;
+  if (role === "ops") return transaction.source === "manual";
+  return false;
+}
+
 export function TransactionsClient({
   initialCoded,
-  canDelete,
+  role,
 }: {
   initialCoded?: CodedFilter;
-  canDelete: boolean;
+  role: Role;
 }) {
+  const canBulkDelete = role === "admin";
   const [transactions, setTransactions] = useState<TransactionWithCoding[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -152,7 +160,7 @@ export function TransactionsClient({
               <Button variant="secondary" onClick={() => setShowBulkModal(true)}>
                 Code {selected.size} selected
               </Button>
-              {canDelete && (
+              {canBulkDelete && (
                 <Button variant="danger" onClick={handleBulkDelete} disabled={bulkDeleting}>
                   {bulkDeleting ? "Deleting…" : `Delete ${selected.size} selected`}
                 </Button>
@@ -253,7 +261,7 @@ export function TransactionsClient({
       {activeTransaction && (
         <CodingPanel
           transaction={activeTransaction}
-          canDelete={canDelete}
+          canDelete={canDeleteTransaction(role, activeTransaction)}
           onClose={() => setActiveTransaction(null)}
           onSaved={() => {
             setActiveTransaction(null);
