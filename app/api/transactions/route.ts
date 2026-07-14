@@ -20,6 +20,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const coded = url.searchParams.get("coded"); // 'coded' | 'uncoded' | null (all)
   const source = url.searchParams.get("source");
+  const account = url.searchParams.get("account");
   const retreatId = url.searchParams.get("retreatId");
   const startDate = url.searchParams.get("startDate");
   const endDate = url.searchParams.get("endDate");
@@ -36,6 +37,7 @@ export async function GET(request: Request) {
     .range(offset, offset + limit - 1);
 
   if (source) query = query.eq("source", source);
+  if (account) query = query.eq("account_label", account);
   if (startDate) query = query.gte("posted_date", startDate);
   if (endDate) query = query.lte("posted_date", endDate);
   if (search) query = query.ilike("description", `%${search}%`);

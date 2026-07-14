@@ -28,6 +28,8 @@ export function TransactionsClient({
   const [hasMore, setHasMore] = useState(false);
   const [coded, setCoded] = useState<CodedFilter>(initialCoded ?? "all");
   const [search, setSearch] = useState("");
+  const [account, setAccount] = useState("");
+  const [accounts, setAccounts] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activeTransaction, setActiveTransaction] = useState<TransactionWithCoding | null>(null);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -41,6 +43,7 @@ export function TransactionsClient({
       const params = new URLSearchParams();
       if (coded !== "all") params.set("coded", coded);
       if (search) params.set("search", search);
+      if (account) params.set("account", account);
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(offset));
       const res = await fetch(`/api/transactions?${params.toString()}`);
@@ -49,7 +52,7 @@ export function TransactionsClient({
       setHasMore(page.length === PAGE_SIZE);
       return page;
     },
-    [coded, search]
+    [coded, search, account]
   );
 
   // Resets to the first page whenever filters change -- a separate effect
@@ -72,6 +75,12 @@ export function TransactionsClient({
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
+
+  useEffect(() => {
+    fetch("/api/transactions/accounts")
+      .then((r) => r.json())
+      .then((data) => setAccounts(data.accounts ?? []));
+  }, []);
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -122,6 +131,14 @@ export function TransactionsClient({
           <option value="all">All transactions</option>
           <option value="uncoded">Uncoded</option>
           <option value="coded">Coded</option>
+        </Select>
+        <Select value={account} onChange={(e) => setAccount(e.target.value)} className="w-44">
+          <option value="">All accounts</option>
+          {accounts.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
         </Select>
         <Input
           placeholder="Search description…"
