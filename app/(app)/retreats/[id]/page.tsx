@@ -35,8 +35,9 @@ export default async function RetreatDetailPage({
         .maybeSingle(),
       supabase
         .from("transaction_codings")
-        .select("*, transaction:transactions(*), category:categories(*)")
-        .eq("retreat_id", id),
+        .select("*, transaction:transactions!inner(*), category:categories(*)")
+        .eq("retreat_id", id)
+        .eq("transaction.is_deleted_by_source", false),
     ]);
 
   if (!retreat) notFound();
