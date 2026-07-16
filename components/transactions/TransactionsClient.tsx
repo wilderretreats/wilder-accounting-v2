@@ -228,14 +228,20 @@ export function TransactionsClient({
                   {formatCurrency(t.amount)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2">
-                  {t.coding ? (
+                  {t.isSplit ? (
+                    <Badge tone="blue">Split ({t.codings.length})</Badge>
+                  ) : t.codings.length > 0 ? (
                     <Badge tone="blue">{t.category?.name ?? "—"}</Badge>
                   ) : (
                     <Badge tone="amber">Uncoded</Badge>
                   )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-zinc-500">
-                  {t.retreat ? `${t.retreat.client_name ?? ""} — ${t.retreat.name}` : "—"}
+                  {t.isSplit
+                    ? "Multiple"
+                    : t.retreat
+                      ? `${t.retreat.client_name ?? ""} — ${t.retreat.name}`
+                      : "—"}
                 </td>
               </tr>
             ))}

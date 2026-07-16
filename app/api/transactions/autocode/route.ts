@@ -25,7 +25,7 @@ export async function POST() {
     supabase.from("categories").select("id, type"),
     supabase
       .from("transactions")
-      .select("id, description, transaction_codings!left(transaction_id)")
+      .select("id, description, amount, transaction_codings!left(transaction_id)")
       .eq("is_deleted_by_source", false)
       .is("transaction_codings.transaction_id", null),
   ]);
@@ -46,6 +46,7 @@ export async function POST() {
       transaction_id: txn.id,
       category_id: rule.category_id,
       retreat_id: null,
+      amount: txn.amount,
       coded_by: authed.user.id,
       coded_at: now,
       updated_by: authed.user.id,
@@ -57,10 +58,12 @@ export async function POST() {
     return NextResponse.json({ coded: 0 });
   }
 
-  const { error: upsertError } = await supabase
-    .from("transaction_codings")
-    .upsert(codedRows, { onConflict: "transaction_id" });
-  if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 400 });
+  // These rows are provably for transactions with zero existing codings
+  // (guaranteed by the uncoded query filter above), so a plain insert is
+  // correct -- there's no conflict to handle, and transaction_id is no
+  // longer unique for upsert's onConflict target to resolve against.
+  const { error: insertError } = await supabase.from("transaction_codings").insert(codedRows);
+  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 400 });
 
   await writeAuditLog({
     actorId: authed.user.id,

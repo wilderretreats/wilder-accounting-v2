@@ -3,10 +3,11 @@ import { z } from "zod";
 import { getAuthedProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
+import { shapeTransactionWithCoding, type RawTransactionWithCodings } from "@/lib/transactions/shape";
 
 const TRANSACTION_WITH_CODING_SELECT = `
   *,
-  coding:transaction_codings(
+  codings:transaction_codings(
     *,
     category:categories(*),
     retreat:retreats(*, client:clients(name), ops_owner:ops_owners(name))
@@ -49,32 +50,22 @@ export async function GET(request: Request) {
   // outer-joined relationship's presence isn't expressible through the query
   // builder without a second round trip.
   //
-  // transaction_codings.transaction_id is the PRIMARY KEY of that table, so
-  // PostgREST recognizes this as a genuine one-to-one relationship and
-  // returns `coding` as a plain object (or null) -- NOT an array. Treating
-  // it as an array (r.coding?.[0], r.coding.length) silently evaluates to
-  // undefined/null for every row regardless of actual coding status, which
-  // is why the UI showed every transaction as uncoded despite the database
-  // having the codings all along.
-  let rows = data ?? [];
+  // transaction_codings.transaction_id is no longer that table's primary key
+  // (see migration 014 -- a transaction can be split across multiple coding
+  // rows), so PostgREST returns `codings` as an array. A transaction split
+  // across two retreats matches the retreatId filter under either retreat,
+  // which is the correct behavior -- each split row is an independent fact.
+  let rows = (data ?? []) as RawTransactionWithCodings[];
   if (coded === "uncoded") {
-    rows = rows.filter((r) => !r.coding);
+    rows = rows.filter((r) => (r.codings ?? []).length === 0);
   } else if (coded === "coded") {
-    rows = rows.filter((r) => !!r.coding);
+    rows = rows.filter((r) => (r.codings ?? []).length > 0);
   }
   if (retreatId) {
-    rows = rows.filter((r) => r.coding?.retreat_id === retreatId);
+    rows = rows.filter((r) => (r.codings ?? []).some((c) => c.retreat_id === retreatId));
   }
 
-  // TransactionWithCoding's contract puts category/retreat at the top level
-  // (see types/index.ts) so list views don't need to reach through
-  // coding?.category — flatten them here rather than leaving every consumer
-  // to do it.
-  const shaped = rows.map((r) => ({
-    ...r,
-    category: r.coding?.category ?? null,
-    retreat: r.coding?.retreat ?? null,
-  }));
+  const shaped = rows.map(shapeTransactionWithCoding);
 
   return NextResponse.json({ transactions: shaped });
 }

@@ -99,9 +99,12 @@ export interface Transaction {
 }
 
 export interface TransactionCoding {
+  id: string;
   transaction_id: string;
   category_id: string;
   retreat_id: string | null;
+  /** This split's share of the parent transaction; same sign convention as Transaction.amount. */
+  amount: number;
   comment: string | null;
   coded_by: string;
   coded_at: string;
@@ -109,11 +112,22 @@ export interface TransactionCoding {
   updated_at: string;
 }
 
-/** A transaction joined with its (possibly absent) coding, for list views. */
-export interface TransactionWithCoding extends Transaction {
-  coding: TransactionCoding | null;
+export interface TransactionCodingWithRelations extends TransactionCoding {
   category: Category | null;
   retreat: RetreatWithClient | null;
+}
+
+/**
+ * A transaction joined with its codings (zero, one, or many for a split
+ * transaction), for list/detail views. `category`/`retreat` are only
+ * populated when there's exactly one coding -- an arbitrary "first wins"
+ * pick would be misleading once a transaction is split.
+ */
+export interface TransactionWithCoding extends Transaction {
+  codings: TransactionCodingWithRelations[];
+  category: Category | null;
+  retreat: RetreatWithClient | null;
+  isSplit: boolean;
 }
 
 export interface RetreatLock {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAuthedProfile, hasRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
+import { shapeTransactionWithCoding, type RawTransactionWithCodings } from "@/lib/transactions/shape";
 
 export async function GET(
   _request: Request,
@@ -15,14 +16,14 @@ export async function GET(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("transactions")
-    .select("*, coding:transaction_codings(*, category:categories(*), retreat:retreats(*))")
+    .select("*, codings:transaction_codings(*, category:categories(*), retreat:retreats(*))")
     .eq("id", id)
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  // transaction_codings.transaction_id is the PRIMARY KEY of that table, so
-  // PostgREST returns `coding` as a plain object (or null), not an array.
-  return NextResponse.json({ transaction: data });
+  // transaction_codings.transaction_id is no longer that table's primary
+  // key (see migration 014), so PostgREST returns `codings` as an array.
+  return NextResponse.json({ transaction: shapeTransactionWithCoding(data as RawTransactionWithCodings) });
 }
 
 const patchSchema = z

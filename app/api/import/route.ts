@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         import_batch_id: batch.id,
       }))
     )
-    .select("id, description");
+    .select("id, description, amount");
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 400 });
 
   // Auto-code Overhead matches immediately (same rule as /api/transactions/autocode —
@@ -93,6 +93,7 @@ export async function POST(request: Request) {
         transaction_id: t.id,
         category_id: rule.category_id,
         retreat_id: null,
+        amount: t.amount,
         coded_by: authed.user.id,
         coded_at: now,
         updated_by: authed.user.id,
@@ -101,8 +102,10 @@ export async function POST(request: Request) {
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
+  // These rows are always for just-inserted transactions, so no conflict is
+  // possible -- plain insert (transaction_id is no longer a unique upsert target).
   if (codedRows.length > 0) {
-    await supabase.from("transaction_codings").upsert(codedRows, { onConflict: "transaction_id" });
+    await supabase.from("transaction_codings").insert(codedRows);
   }
 
   return NextResponse.json({

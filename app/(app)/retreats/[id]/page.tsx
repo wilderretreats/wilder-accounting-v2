@@ -83,7 +83,7 @@ export default async function RetreatDetailPage({
             </thead>
             <tbody>
               {(codedTransactions ?? []).map((c) => (
-                <tr key={c.transaction_id} className="border-t border-zinc-100">
+                <tr key={c.id} className="border-t border-zinc-100">
                   <td className="py-2 pr-4 text-zinc-600">
                     {c.transaction && formatDate(c.transaction.posted_date)}
                   </td>
@@ -100,10 +100,10 @@ export default async function RetreatDetailPage({
                   </td>
                   <td
                     className={`py-2 text-right font-medium ${
-                      (c.transaction?.amount ?? 0) < 0 ? "text-red-600" : "text-emerald-700"
+                      c.amount < 0 ? "text-red-600" : "text-emerald-700"
                     }`}
                   >
-                    {c.transaction && formatCurrency(c.transaction.amount)}
+                    {formatCurrency(c.amount)}
                   </td>
                 </tr>
               ))}

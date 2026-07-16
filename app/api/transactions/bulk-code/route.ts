@@ -62,31 +62,17 @@ export async function POST(request: Request) {
     }
   }
 
-  const now = new Date().toISOString();
-  const { data: existing } = await supabase
-    .from("transaction_codings")
-    .select("transaction_id, coded_by, coded_at")
-    .in("transaction_id", transactionIds);
-  const existingByTxn = new Map((existing ?? []).map((e) => [e.transaction_id, e]));
-
-  const rows = transactionIds.map((transactionId) => {
-    const prior = existingByTxn.get(transactionId);
-    return {
-      transaction_id: transactionId,
-      category_id: categoryId,
-      retreat_id: retreatId,
-      comment: comment ?? null,
-      coded_by: prior?.coded_by ?? authed.user.id,
-      coded_at: prior?.coded_at ?? now,
-      updated_by: authed.user.id,
-      updated_at: now,
-    };
+  // Bulk-code always applies one category/retreat at 100% of each
+  // transaction's own amount -- replace_transaction_codings_bulk resets each
+  // target transaction (including any that were previously split) back to a
+  // single coding row, preserving each one's original coded_by/coded_at.
+  const { data: updated, error } = await supabase.rpc("replace_transaction_codings_bulk", {
+    p_transaction_ids: transactionIds,
+    p_category_id: categoryId,
+    p_retreat_id: retreatId,
+    p_comment: comment ?? null,
+    p_actor_id: authed.user.id,
   });
-
-  const { data: updated, error } = await supabase
-    .from("transaction_codings")
-    .upsert(rows, { onConflict: "transaction_id" })
-    .select();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
