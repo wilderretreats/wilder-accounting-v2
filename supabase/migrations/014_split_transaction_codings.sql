@@ -12,10 +12,19 @@ alter table transaction_codings add column id uuid not null default gen_random_u
 alter table transaction_codings add primary key (id);
 
 alter table transaction_codings add column amount numeric(12,2);
+
+-- Backfilling amount is an UPDATE on every existing coding row, which would
+-- otherwise trip transaction_codings_enforce_not_locked (004_locks_and_audit.sql)
+-- for every row already coded to an audited/locked retreat -- this is a
+-- schema backfill, not a real coding change, so the lock guard is
+-- irrelevant here and gets disabled just for this one statement.
+alter table transaction_codings disable trigger transaction_codings_enforce_not_locked;
 update transaction_codings tc
 set amount = t.amount
 from transactions t
 where t.id = tc.transaction_id;
+alter table transaction_codings enable trigger transaction_codings_enforce_not_locked;
+
 alter table transaction_codings alter column amount set not null;
 
 comment on column transaction_codings.amount is
