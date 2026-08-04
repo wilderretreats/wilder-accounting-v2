@@ -26,6 +26,9 @@ export async function GET(request: Request) {
   const startDate = url.searchParams.get("startDate");
   const endDate = url.searchParams.get("endDate");
   const search = url.searchParams.get("search");
+  // 'cogs' (default) is the shared revenue/COGS workspace; 'overhead' is its
+  // own separate list -- these never overlap, by construction of the filter.
+  const scope = url.searchParams.get("scope") === "overhead" ? "overhead" : "cogs";
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 200), 1000);
   const offset = Number(url.searchParams.get("offset") ?? 0);
 
@@ -34,6 +37,7 @@ export async function GET(request: Request) {
     .from("transactions")
     .select(TRANSACTION_WITH_CODING_SELECT)
     .eq("is_deleted_by_source", false)
+    .eq("is_overhead", scope === "overhead")
     .order("posted_date", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -76,6 +80,7 @@ const manualTransactionSchema = z.object({
   amount: z.number(),
   accountLabel: z.string().optional(),
   pending: z.boolean().optional(),
+  isOverhead: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -97,6 +102,7 @@ export async function POST(request: Request) {
       amount: parsed.data.amount,
       account_label: parsed.data.accountLabel ?? null,
       pending: parsed.data.pending ?? false,
+      is_overhead: parsed.data.isOverhead ?? false,
     })
     .select()
     .single();

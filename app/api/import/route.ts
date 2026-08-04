@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   const file = formData.get("file");
   const accountLabel = String(formData.get("accountLabel") ?? "").trim();
   const replaceAll = formData.get("replaceAll") === "true";
+  const isOverhead = formData.get("isOverhead") === "true";
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -37,11 +38,14 @@ export async function POST(request: Request) {
   const supabase = await createClient();
 
   if (replaceAll && accountLabel) {
+    // Scoped by is_overhead too, so replacing an overhead-workspace import
+    // never touches a same-named account's COGS-side rows, or vice versa.
     await supabase
       .from("transactions")
       .update({ is_deleted_by_source: true })
       .eq("source", "csv")
       .eq("account_label", accountLabel)
+      .eq("is_overhead", isOverhead)
       .eq("is_deleted_by_source", false);
   }
 
@@ -71,6 +75,7 @@ export async function POST(request: Request) {
         description: r.description,
         amount: r.amount,
         import_batch_id: batch.id,
+        is_overhead: isOverhead,
       }))
     )
     .select("id, description, amount");

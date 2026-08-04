@@ -18,7 +18,15 @@ function deriveAccountLabel(fileName: string): string | null {
   return match ? friendlyAccountLabel(match[1]) : null;
 }
 
-export function ImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+export function ImportModal({
+  onClose,
+  onImported,
+  isOverhead = false,
+}: {
+  onClose: () => void;
+  onImported: () => void;
+  isOverhead?: boolean;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [accountLabel, setAccountLabel] = useState("");
   const [replaceAll, setReplaceAll] = useState(false);
@@ -35,6 +43,7 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
     formData.append("file", file);
     formData.append("accountLabel", accountLabel);
     formData.append("replaceAll", String(replaceAll));
+    formData.append("isOverhead", String(isOverhead));
 
     const res = await fetch("/api/import", { method: "POST", body: formData });
     const data = await res.json();
@@ -53,7 +62,9 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
         className="flex w-full max-w-md flex-col gap-4 rounded-lg bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-semibold text-zinc-900">Import transactions from CSV</h2>
+        <h2 className="text-base font-semibold text-zinc-900">
+          Import {isOverhead ? "overhead " : ""}transactions from CSV
+        </h2>
 
         {result ? (
           <>
@@ -106,7 +117,8 @@ export function ImportModal({ onClose, onImported }: { onClose: () => void; onIm
                 checked={replaceAll}
                 onChange={(e) => setReplaceAll(e.target.checked)}
               />
-              Replace existing CSV-imported transactions for this account
+              Replace existing {isOverhead ? "overhead " : ""}CSV-imported transactions for this
+              account
             </label>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-2">

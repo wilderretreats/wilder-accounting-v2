@@ -93,6 +93,8 @@ export interface Transaction {
   reconciled_by: string | null;
   /** Placeholder for money expected but not yet received/paid. Blocks locking the retreat it's coded to. */
   pending: boolean;
+  /** Routes this transaction into the overhead-only workspace instead of the shared revenue/COGS one. */
+  is_overhead: boolean;
   is_deleted_by_source: boolean;
   created_at: string;
   updated_at: string;

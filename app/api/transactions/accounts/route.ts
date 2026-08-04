@@ -5,15 +5,19 @@ import { createClient } from "@/lib/supabase/server";
 // account_label is free text (see lib/accounts.ts) -- there's no canonical
 // accounts table to select from, so the filter dropdown's options come from
 // whatever distinct values already exist on non-deleted transactions.
-export async function GET() {
+export async function GET(request: Request) {
   const authed = await getAuthedProfile();
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(request.url);
+  const scope = url.searchParams.get("scope") === "overhead" ? "overhead" : "cogs";
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("transactions")
     .select("account_label")
     .eq("is_deleted_by_source", false)
+    .eq("is_overhead", scope === "overhead")
     .not("account_label", "is", null);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 interface AddTransactionModalProps {
   onClose: () => void;
   onAdded: () => void;
+  isOverhead?: boolean;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function AddTransactionModal({ onClose, onAdded }: AddTransactionModalProps) {
+export function AddTransactionModal({ onClose, onAdded, isOverhead = false }: AddTransactionModalProps) {
   const [postedDate, setPostedDate] = useState(today());
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -42,6 +43,7 @@ export function AddTransactionModal({ onClose, onAdded }: AddTransactionModalPro
         amount: parsedAmount,
         accountLabel: accountLabel.trim() || undefined,
         pending,
+        isOverhead,
       }),
     });
     const data = await res.json();
@@ -60,7 +62,9 @@ export function AddTransactionModal({ onClose, onAdded }: AddTransactionModalPro
         className="flex w-full max-w-md flex-col gap-4 rounded-lg bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-semibold text-zinc-900">Add transaction</h2>
+        <h2 className="text-base font-semibold text-zinc-900">
+          Add {isOverhead ? "overhead " : ""}transaction
+        </h2>
 
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">Date</label>

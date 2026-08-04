@@ -305,6 +305,7 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
                         retreatId: type === "overhead" ? null : split.retreatId,
                       })
                     }
+                    typeFilter={transaction.is_overhead ? "overhead" : undefined}
                   />
                 </div>
 

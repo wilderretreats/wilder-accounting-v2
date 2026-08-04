@@ -25,9 +25,12 @@ function canDeleteTransaction(role: Role, transaction: TransactionWithCoding): b
 export function TransactionsClient({
   initialCoded,
   role,
+  scope = "cogs",
 }: {
   initialCoded?: CodedFilter;
   role: Role;
+  /** Which transactions workspace this is -- overhead and revenue/COGS transactions never mix. */
+  scope?: "cogs" | "overhead";
 }) {
   const canBulkDelete = role === "admin";
   const [transactions, setTransactions] = useState<TransactionWithCoding[]>([]);
@@ -49,6 +52,7 @@ export function TransactionsClient({
   const fetchPage = useCallback(
     async (offset: number) => {
       const params = new URLSearchParams();
+      params.set("scope", scope);
       if (coded !== "all") params.set("coded", coded);
       if (search) params.set("search", search);
       if (account) params.set("account", account);
@@ -60,7 +64,7 @@ export function TransactionsClient({
       setHasMore(page.length === PAGE_SIZE);
       return page;
     },
-    [coded, search, account]
+    [scope, coded, search, account]
   );
 
   // Resets to the first page whenever filters change -- a separate effect
@@ -85,10 +89,10 @@ export function TransactionsClient({
   }, [loadTransactions]);
 
   useEffect(() => {
-    fetch("/api/transactions/accounts")
+    fetch(`/api/transactions/accounts?scope=${scope}`)
       .then((r) => r.json())
       .then((data) => setAccounts(data.accounts ?? []));
-  }, []);
+  }, [scope]);
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -293,7 +297,11 @@ export function TransactionsClient({
       )}
 
       {showImportModal && (
-        <ImportModal onClose={() => setShowImportModal(false)} onImported={loadTransactions} />
+        <ImportModal
+          onClose={() => setShowImportModal(false)}
+          onImported={loadTransactions}
+          isOverhead={scope === "overhead"}
+        />
       )}
 
       {showAddModal && (
@@ -303,6 +311,7 @@ export function TransactionsClient({
             setShowAddModal(false);
             loadTransactions();
           }}
+          isOverhead={scope === "overhead"}
         />
       )}
     </div>

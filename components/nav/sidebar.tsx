@@ -10,6 +10,7 @@ import type { Role } from "@/types";
 const mainNav = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/transactions", label: "Transactions" },
+  { href: "/transactions/overhead", label: "Overhead Transactions" },
   { href: "/clients", label: "Clients" },
   { href: "/retreats", label: "Retreats" },
   { href: "/owners", label: "Owners" },
@@ -26,6 +27,20 @@ const settingsNav = [
 ];
 
 const ownerNav = [{ href: "/pl", label: "Profit & Loss" }];
+
+const allNavHrefs = [...mainNav, ...settingsNav, ...ownerNav].map((item) => item.href);
+
+/**
+ * Longest-prefix match against every nav href, not just this one -- so
+ * "/transactions/overhead" doesn't also light up the "/transactions" link
+ * it happens to start with.
+ */
+function isNavActive(pathname: string, href: string, allHrefs: string[]): boolean {
+  if (pathname !== href && !pathname.startsWith(href + "/")) return false;
+  return !allHrefs.some(
+    (other) => other !== href && other.length > href.length && (pathname === other || pathname.startsWith(other + "/"))
+  );
+}
 
 export function Sidebar({
   userEmail,
@@ -66,7 +81,7 @@ export function Sidebar({
                 href={item.href}
                 className={cn(
                   "block rounded-md px-3 py-2 text-sm font-medium",
-                  pathname.startsWith(item.href)
+                  isNavActive(pathname, item.href, allNavHrefs)
                     ? "bg-zinc-900 text-white"
                     : "text-zinc-700 hover:bg-zinc-100"
                 )}
@@ -82,7 +97,7 @@ export function Sidebar({
                   href={item.href}
                   className={cn(
                     "block rounded-md px-3 py-2 text-sm font-medium",
-                    pathname.startsWith(item.href)
+                    isNavActive(pathname, item.href, allNavHrefs)
                       ? "bg-zinc-900 text-white"
                       : "text-zinc-700 hover:bg-zinc-100"
                   )}
@@ -110,7 +125,7 @@ export function Sidebar({
                     href={item.href}
                     className={cn(
                       "block rounded-md px-3 py-2 text-sm font-medium",
-                      pathname.startsWith(item.href)
+                      isNavActive(pathname, item.href, allNavHrefs)
                         ? "bg-zinc-900 text-white"
                         : "text-zinc-700 hover:bg-zinc-100"
                     )}
