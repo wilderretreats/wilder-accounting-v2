@@ -5,9 +5,12 @@ import type {
   ClientSummary,
   MonthlyPnl,
   OwnerSummary,
+  PnlOverheadLine,
+  PnlStatement,
   RetreatActuals,
   RetreatSummary,
 } from "@/types";
+import { getCategories } from "@/lib/categories";
 
 /**
  * Derives gross profit/margin and the AllFly "ex-flights" view from the raw
@@ -292,4 +295,125 @@ export async function getCategoryMonthlyBreakdown(
   return Array.from(byKey.values()).sort(
     (a, b) => a.month.localeCompare(b.month) || a.category_name.localeCompare(b.category_name)
   );
+}
+
+function sumValues(record: Record<string, number>): number {
+  return Object.values(record).reduce((a, b) => a + b, 0);
+}
+
+/** Every first-of-month ISO date from startMonth to endMonth, inclusive. */
+function enumerateMonths(startMonth: string, endMonth: string): string[] {
+  const months: string[] = [];
+  const cursor = new Date(startMonth + "T00:00:00Z");
+  const end = new Date(endMonth + "T00:00:00Z");
+  while (cursor <= end) {
+    months.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return months;
+}
+
+/**
+ * Company-wide P&L statement across a range of months: Revenue - COGS =
+ * Operating Profit up top, then every active overhead category (parent/child,
+ * per `sort_order` -- a P&L's line items stay in a fixed order, not resorted
+ * by size each period) subtracted down to Net Income, every row broken out
+ * by month. Every active overhead category appears even at $0 for every
+ * month, so a newly-added one shows up immediately.
+ */
+export async function getPnlStatement(
+  supabase: SupabaseClient,
+  opts: { startMonth: string; endMonth: string }
+): Promise<PnlStatement> {
+  const months = enumerateMonths(opts.startMonth, opts.endMonth);
+
+  const [monthlyTotals, overheadCategories, overheadRowsResp] = await Promise.all([
+    getMonthlyPnl(supabase, opts),
+    getCategories(supabase, { type: "overhead" }),
+    supabase
+      .from("overhead_monthly_actuals")
+      .select("month, category_id, amount")
+      .gte("month", opts.startMonth)
+      .lte("month", opts.endMonth),
+  ]);
+  if (overheadRowsResp.error) throw overheadRowsResp.error;
+
+  const monthlyByMonth = new Map(monthlyTotals.map((m) => [m.month, m]));
+  const revenueByMonth: Record<string, number> = {};
+  const cogsByMonth: Record<string, number> = {};
+  const operatingProfitByMonth: Record<string, number> = {};
+  for (const month of months) {
+    const m = monthlyByMonth.get(month);
+    const rev = m?.revenue ?? 0;
+    const cogsAmt = m?.cogs ?? 0;
+    revenueByMonth[month] = rev;
+    cogsByMonth[month] = cogsAmt;
+    operatingProfitByMonth[month] = rev - cogsAmt;
+  }
+  const revenue = sumValues(revenueByMonth);
+  const cogs = sumValues(cogsByMonth);
+  const operating_profit = revenue - cogs;
+
+  const amountByCategoryMonth = new Map<string, number>();
+  for (const row of overheadRowsResp.data ?? []) {
+    amountByCategoryMonth.set(`${row.category_id}:${row.month}`, row.amount as number);
+  }
+  function amountsFor(categoryId: string): Record<string, number> {
+    const byMonth: Record<string, number> = {};
+    for (const month of months) {
+      byMonth[month] = amountByCategoryMonth.get(`${categoryId}:${month}`) ?? 0;
+    }
+    return byMonth;
+  }
+  function sumByMonth(rows: Record<string, number>[]): Record<string, number> {
+    const result: Record<string, number> = {};
+    for (const month of months) result[month] = rows.reduce((sum, r) => sum + r[month], 0);
+    return result;
+  }
+
+  const childrenByParent = new Map<string, typeof overheadCategories>();
+  for (const c of overheadCategories) {
+    if (!c.parent_id) continue;
+    if (!childrenByParent.has(c.parent_id)) childrenByParent.set(c.parent_id, []);
+    childrenByParent.get(c.parent_id)!.push(c);
+  }
+
+  const overhead: PnlOverheadLine[] = overheadCategories
+    .filter((c) => c.parent_id === null)
+    .map((parent) => {
+      const children = (childrenByParent.get(parent.id) ?? []).map((child) => {
+        const byMonth = amountsFor(child.id);
+        return { id: child.id, name: child.name, byMonth, total: sumValues(byMonth) };
+      });
+      // A transaction can be coded directly to the parent category itself.
+      const ownByMonth = amountsFor(parent.id);
+      const byMonth = sumByMonth([ownByMonth, ...children.map((c) => c.byMonth)]);
+      return { id: parent.id, name: parent.name, byMonth, total: sumValues(byMonth), children };
+    });
+
+  const overheadTotalByMonth = sumByMonth(overhead.map((l) => l.byMonth));
+  const overhead_total = sumValues(overheadTotalByMonth);
+
+  const netIncomeByMonth: Record<string, number> = {};
+  for (const month of months) {
+    netIncomeByMonth[month] = operatingProfitByMonth[month] - overheadTotalByMonth[month];
+  }
+  const net_income = operating_profit - overhead_total;
+
+  return {
+    startMonth: opts.startMonth,
+    endMonth: opts.endMonth,
+    months,
+    revenueByMonth,
+    cogsByMonth,
+    operatingProfitByMonth,
+    revenue,
+    cogs,
+    operating_profit,
+    overhead,
+    overheadTotalByMonth,
+    overhead_total,
+    netIncomeByMonth,
+    net_income,
+  };
 }

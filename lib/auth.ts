@@ -22,6 +22,26 @@ export async function requireRole(allowed: Role[]): Promise<AuthedProfile> {
   return authed;
 }
 
+/**
+ * The single account allowed to see the P&L page — hardcoded rather than a
+ * role, since there's no per-user visibility concept elsewhere in the app
+ * (roles are shared by every admin). Checked against the Supabase Auth
+ * user's email, not profiles.email, since the former is the one guaranteed
+ * to be verified/authoritative.
+ */
+const OWNER_EMAIL = "kirk@discoverwilder.com";
+
+export function isOwner(authed: AuthedProfile): boolean {
+  return authed.user.email?.toLowerCase() === OWNER_EMAIL;
+}
+
+/** For Server Components/pages restricted to the owner — redirects to /dashboard otherwise. */
+export async function requireOwner(): Promise<AuthedProfile> {
+  const authed = await requireProfile();
+  if (!isOwner(authed)) redirect("/dashboard");
+  return authed;
+}
+
 /** For Route Handlers — callers decide how to respond (401 JSON, etc). */
 export async function getAuthedProfile(): Promise<AuthedProfile | null> {
   const supabase = await createClient();

@@ -261,3 +261,37 @@ export interface CategoryMonthlyAmount {
   month: string; // ISO date, first of month
   amount: number;
 }
+
+/** One overhead line item, broken out by month -- a top-level category with its children rolled in. */
+export interface PnlOverheadLine {
+  id: string;
+  name: string;
+  /** Keyed by ISO month (first-of-month). Includes this category's own coding plus all children's. */
+  byMonth: Record<string, number>;
+  total: number;
+  children: Array<{ id: string; name: string; byMonth: Record<string, number>; total: number }>;
+}
+
+/**
+ * A full company-wide P&L statement across a range of months: Revenue -
+ * COGS = Operating Profit up top, then every active overhead category
+ * (grouped parent/child, zero-amount categories included) subtracted down
+ * to Net Income -- every row broken out by month plus a period total.
+ */
+export interface PnlStatement {
+  startMonth: string;
+  endMonth: string;
+  /** ISO, first-of-month, sorted, one entry per month in [startMonth, endMonth]. */
+  months: string[];
+  revenueByMonth: Record<string, number>;
+  cogsByMonth: Record<string, number>;
+  operatingProfitByMonth: Record<string, number>;
+  revenue: number;
+  cogs: number;
+  operating_profit: number;
+  overhead: PnlOverheadLine[];
+  overheadTotalByMonth: Record<string, number>;
+  overhead_total: number;
+  netIncomeByMonth: Record<string, number>;
+  net_income: number;
+}

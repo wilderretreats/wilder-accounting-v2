@@ -25,14 +25,18 @@ const settingsNav = [
   { href: "/settings/users", label: "Users", adminOnly: true },
 ];
 
+const ownerNav = [{ href: "/pl", label: "Profit & Loss" }];
+
 export function Sidebar({
   userEmail,
   fullName,
   role,
+  isOwner,
 }: {
   userEmail: string;
   fullName: string | null;
   role: Role;
+  isOwner: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -46,7 +50,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex h-screen w-60 flex-col border-r border-zinc-200 bg-white">
+    <aside className="flex h-screen w-60 flex-col border-r border-zinc-200 bg-white print:hidden">
       <div className="border-b border-zinc-200 px-4 py-4">
         <p className="text-sm font-semibold text-zinc-900">Wilder Retreats</p>
         <p className="truncate text-xs text-zinc-500">{fullName ?? userEmail}</p>
@@ -71,6 +75,22 @@ export function Sidebar({
               </Link>
             </li>
           ))}
+          {isOwner &&
+            ownerNav.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "block rounded-md px-3 py-2 text-sm font-medium",
+                    pathname.startsWith(item.href)
+                      ? "bg-zinc-900 text-white"
+                      : "text-zinc-700 hover:bg-zinc-100"
+                  )}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
         </ul>
 
         <button
