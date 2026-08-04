@@ -197,7 +197,7 @@ export function TransactionsClient({
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2">Category</th>
-              <th className="px-3 py-2">Retreat</th>
+              {scope !== "overhead" && <th className="px-3 py-2">Retreat</th>}
             </tr>
           </thead>
           <tbody>
@@ -240,18 +240,20 @@ export function TransactionsClient({
                     <Badge tone="amber">Uncoded</Badge>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-3 py-2 text-zinc-500">
-                  {t.isSplit
-                    ? "Multiple"
-                    : t.retreat
-                      ? `${t.retreat.client_name ?? ""} — ${t.retreat.name}`
-                      : "—"}
-                </td>
+                {scope !== "overhead" && (
+                  <td className="whitespace-nowrap px-3 py-2 text-zinc-500">
+                    {t.isSplit
+                      ? "Multiple"
+                      : t.retreat
+                        ? `${t.retreat.client_name ?? ""} — ${t.retreat.name}`
+                        : "—"}
+                  </td>
+                )}
               </tr>
             ))}
             {!loading && transactions.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-zinc-400">
+                <td colSpan={scope === "overhead" ? 6 : 7} className="py-8 text-center text-zinc-400">
                   No transactions match these filters.
                 </td>
               </tr>
@@ -293,6 +295,7 @@ export function TransactionsClient({
             setSelected(new Set());
             loadTransactions();
           }}
+          typeFilter={scope === "overhead" ? "overhead" : undefined}
         />
       )}
 

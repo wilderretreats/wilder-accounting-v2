@@ -10,9 +10,11 @@ interface BulkCodeModalProps {
   transactionIds: string[];
   onClose: () => void;
   onSaved: () => void;
+  /** Restrict the category picker to one type -- e.g. the overhead workspace only ever codes to overhead. */
+  typeFilter?: CategoryType;
 }
 
-export function BulkCodeModal({ transactionIds, onClose, onSaved }: BulkCodeModalProps) {
+export function BulkCodeModal({ transactionIds, onClose, onSaved, typeFilter }: BulkCodeModalProps) {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [categoryType, setCategoryType] = useState<CategoryType | null>(null);
   const [retreatId, setRetreatId] = useState<string | null>(null);
@@ -91,6 +93,7 @@ export function BulkCodeModal({ transactionIds, onClose, onSaved }: BulkCodeModa
               setCategoryType(type);
               if (type === "overhead") setRetreatId(null);
             }}
+            typeFilter={typeFilter}
           />
         </div>
 
