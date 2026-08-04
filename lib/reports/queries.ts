@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  CategoryMonthlyAmount,
+  CategoryType,
   ClientSummary,
   MonthlyPnl,
   OwnerSummary,
@@ -199,4 +201,95 @@ export async function getMonthlyPnl(
       };
     })
     .sort((a, b) => a.month.localeCompare(b.month));
+}
+
+/**
+ * Without generated Database types, supabase-js can't tell a to-one embed
+ * from a to-many one and types every embedded resource as an array — but
+ * PostgREST still returns a single object at runtime for a to-one FK. This
+ * normalizes either shape to the object callers actually get.
+ */
+function embedOne<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+/**
+ * Company-wide revenue/COGS/overhead broken out by category *and* month —
+ * the category-level drill-down under getMonthlyPnl's type-level totals.
+ * Same month-attribution rule as getMonthlyPnl: revenue/cogs roll up by the
+ * retreat's retreat_month, overhead by its own posted_date month (borrowed
+ * from overhead_monthly_actuals, which already has this shape).
+ */
+export async function getCategoryMonthlyBreakdown(
+  supabase: SupabaseClient,
+  opts: { startMonth?: string; endMonth?: string } = {}
+): Promise<CategoryMonthlyAmount[]> {
+  let retreatQuery = supabase
+    .from("transaction_codings")
+    .select(
+      "amount, category:categories!inner(id, name, type), retreat:retreats!inner(retreat_month), transaction:transactions!inner(is_deleted_by_source)"
+    )
+    .eq("transaction.is_deleted_by_source", false)
+    .in("category.type", ["revenue", "cogs"]);
+  if (opts.startMonth) retreatQuery = retreatQuery.gte("retreat.retreat_month", opts.startMonth);
+  if (opts.endMonth) retreatQuery = retreatQuery.lte("retreat.retreat_month", opts.endMonth);
+  const { data: retreatCodings, error: retreatError } = await retreatQuery;
+  if (retreatError) throw retreatError;
+
+  let overheadQuery = supabase
+    .from("overhead_monthly_actuals")
+    .select("month, category_id, amount");
+  if (opts.startMonth) overheadQuery = overheadQuery.gte("month", opts.startMonth);
+  if (opts.endMonth) overheadQuery = overheadQuery.lte("month", opts.endMonth);
+  const { data: overheadRows, error: overheadError } = await overheadQuery;
+  if (overheadError) throw overheadError;
+
+  const overheadCategoryIds = Array.from(
+    new Set((overheadRows ?? []).map((row) => row.category_id as string))
+  );
+  const { data: overheadCategories, error: overheadCategoriesError } = overheadCategoryIds.length
+    ? await supabase.from("categories").select("id, name").in("id", overheadCategoryIds)
+    : { data: [] as { id: string; name: string }[], error: null };
+  if (overheadCategoriesError) throw overheadCategoriesError;
+  const overheadCategoryNameById = new Map(
+    (overheadCategories ?? []).map((c) => [c.id as string, c.name as string])
+  );
+
+  const byKey = new Map<string, CategoryMonthlyAmount>();
+  function add(month: string, categoryId: string, categoryName: string, categoryType: CategoryType, delta: number) {
+    const key = `${month}:${categoryId}`;
+    const entry = byKey.get(key) ?? {
+      category_id: categoryId,
+      category_name: categoryName,
+      category_type: categoryType,
+      month,
+      amount: 0,
+    };
+    entry.amount += delta;
+    byKey.set(key, entry);
+  }
+
+  for (const row of retreatCodings ?? []) {
+    const category = embedOne<{ id: string; name: string; type: CategoryType }>(row.category);
+    const retreat = embedOne<{ retreat_month: string }>(row.retreat);
+    if (!category || !retreat) continue;
+    const sign = category.type === "revenue" ? 1 : -1;
+    add(retreat.retreat_month, category.id, category.name, category.type, sign * (row.amount as number));
+  }
+
+  for (const row of overheadRows ?? []) {
+    const categoryId = row.category_id as string;
+    add(
+      row.month as string,
+      categoryId,
+      overheadCategoryNameById.get(categoryId) ?? "Unknown",
+      "overhead",
+      row.amount as number
+    );
+  }
+
+  return Array.from(byKey.values()).sort(
+    (a, b) => a.month.localeCompare(b.month) || a.category_name.localeCompare(b.category_name)
+  );
 }

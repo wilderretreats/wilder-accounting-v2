@@ -1,13 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
-import { getMonthlyPnl } from "@/lib/reports/queries";
+import { getCategoryMonthlyBreakdown, getMonthlyPnl } from "@/lib/reports/queries";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { CategoryMonthlyTable } from "@/components/dashboard/CategoryMonthlyTable";
 import { formatCurrency, formatPercent, formatMonth } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
   const yearStart = `${new Date().getFullYear()}-01-01`;
-  const monthlyPnl = await getMonthlyPnl(supabase, { startMonth: yearStart });
+  const [monthlyPnl, categoryBreakdown] = await Promise.all([
+    getMonthlyPnl(supabase, { startMonth: yearStart }),
+    getCategoryMonthlyBreakdown(supabase, { startMonth: yearStart }),
+  ]);
+  const months = monthlyPnl.map((m) => m.month);
 
   const ytd = monthlyPnl.reduce(
     (acc, m) => ({
@@ -70,6 +75,8 @@ export default async function DashboardPage() {
           </table>
         </CardBody>
       </Card>
+
+      <CategoryMonthlyTable breakdown={categoryBreakdown} months={months} />
     </div>
   );
 }

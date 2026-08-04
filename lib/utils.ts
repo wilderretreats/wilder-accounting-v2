@@ -36,3 +36,8 @@ export function formatMonth(isoDate: string): string {
     month: "long",
   });
 }
+
+/** Compact "Jan" label for use as a pivot-table column header. */
+export function formatMonthShort(isoDate: string): string {
+  return new Date(isoDate + "T00:00:00").toLocaleDateString("en-US", { month: "short" });
+}

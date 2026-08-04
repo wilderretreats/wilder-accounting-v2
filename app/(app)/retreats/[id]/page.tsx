@@ -6,9 +6,10 @@ import { getRetreatSummary } from "@/lib/reports/queries";
 import { RetreatSummaryCard } from "@/components/retreats/RetreatSummaryCard";
 import { LockControl } from "@/components/retreats/LockControl";
 import { OwnerControl } from "@/components/retreats/OwnerControl";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { CodedTransactionsTable, type CodedTransactionRow } from "@/components/retreats/CodedTransactionsTable";
+import { CategoryBreakdownReport } from "@/components/retreats/CategoryBreakdownReport";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate, formatMonth } from "@/lib/utils";
+import { formatMonth } from "@/lib/utils";
 
 export default async function RetreatDetailPage({
   params,
@@ -67,57 +68,9 @@ export default async function RetreatDetailPage({
 
       {summary && <RetreatSummaryCard summary={summary} />}
 
-      <Card>
-        <CardHeader>
-          <h2 className="text-sm font-semibold text-zinc-900">Coded transactions</h2>
-        </CardHeader>
-        <CardBody className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-zinc-500">
-                <th className="pb-2 pr-4">Date</th>
-                <th className="pb-2 pr-4">Description</th>
-                <th className="pb-2 pr-4">Category</th>
-                <th className="pb-2 text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(codedTransactions ?? []).map((c) => (
-                <tr key={c.id} className="border-t border-zinc-100">
-                  <td className="py-2 pr-4 text-zinc-600">
-                    {c.transaction && formatDate(c.transaction.posted_date)}
-                  </td>
-                  <td className="py-2 pr-4 text-zinc-900">
-                    {c.transaction?.pending && (
-                      <Badge tone="red" className="mr-1.5 align-middle">
-                        Pending
-                      </Badge>
-                    )}
-                    {c.transaction?.description}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <Badge tone="blue">{c.category?.name}</Badge>
-                  </td>
-                  <td
-                    className={`py-2 text-right font-medium ${
-                      c.amount < 0 ? "text-red-600" : "text-emerald-700"
-                    }`}
-                  >
-                    {formatCurrency(c.amount)}
-                  </td>
-                </tr>
-              ))}
-              {(codedTransactions ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-6 text-center text-zinc-400">
-                    No transactions coded to this retreat yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </CardBody>
-      </Card>
+      <CategoryBreakdownReport rows={(codedTransactions ?? []) as unknown as CodedTransactionRow[]} />
+
+      <CodedTransactionsTable rows={(codedTransactions ?? []) as unknown as CodedTransactionRow[]} />
     </div>
   );
 }

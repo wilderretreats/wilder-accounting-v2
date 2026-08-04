@@ -248,3 +248,16 @@ export interface MonthlyPnl {
   gross_profit: number;
   net_income: number;
 }
+
+/**
+ * One category's rolled-up amount for one month. Same sign convention as
+ * RetreatActuals/MonthlyPnl: revenue is money in, cogs/overhead are shown
+ * as a positive cost (sign already flipped).
+ */
+export interface CategoryMonthlyAmount {
+  category_id: string;
+  category_name: string;
+  category_type: CategoryType;
+  month: string; // ISO date, first of month
+  amount: number;
+}
