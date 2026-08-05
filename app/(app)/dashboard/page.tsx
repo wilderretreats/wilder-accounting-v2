@@ -1,3 +1,4 @@
+import { isOwner, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCategoryMonthlyBreakdown, getMonthlyPnl } from "@/lib/reports/queries";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -5,12 +6,15 @@ import { CategoryMonthlyTable } from "@/components/dashboard/CategoryMonthlyTabl
 import { formatCurrency, formatPercent, formatMonth } from "@/lib/utils";
 
 export default async function DashboardPage() {
+  const authed = await requireProfile();
+  const viewerIsOwner = isOwner(authed);
   const supabase = await createClient();
 
   const yearStart = `${new Date().getFullYear()}-01-01`;
   const [monthlyPnl, categoryBreakdown] = await Promise.all([
     getMonthlyPnl(supabase, { startMonth: yearStart }),
-    getCategoryMonthlyBreakdown(supabase, { startMonth: yearStart }),
+    // Category-by-month breakdown is owner-only -- skip the fetch entirely for everyone else.
+    viewerIsOwner ? getCategoryMonthlyBreakdown(supabase, { startMonth: yearStart }) : Promise.resolve([]),
   ]);
   const months = monthlyPnl.map((m) => m.month);
 
@@ -76,7 +80,7 @@ export default async function DashboardPage() {
         </CardBody>
       </Card>
 
-      <CategoryMonthlyTable breakdown={categoryBreakdown} months={months} />
+      {viewerIsOwner && <CategoryMonthlyTable breakdown={categoryBreakdown} months={months} />}
     </div>
   );
 }
