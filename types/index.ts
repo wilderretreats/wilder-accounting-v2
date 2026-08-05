@@ -95,6 +95,8 @@ export interface Transaction {
   pending: boolean;
   /** Routes this transaction into the overhead-only workspace instead of the shared revenue/COGS one. */
   is_overhead: boolean;
+  /** Trigger-derived from transaction_codings -- never set directly. True iff at least one coding row exists. */
+  is_coded: boolean;
   is_deleted_by_source: boolean;
   created_at: string;
   updated_at: string;

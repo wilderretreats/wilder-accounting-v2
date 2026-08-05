@@ -33,43 +33,51 @@ export async function GET(request: Request) {
   const offset = Number(url.searchParams.get("offset") ?? 0);
 
   const supabase = await createClient();
+
+  // coded/uncoded filters on transactions.is_coded, a trigger-maintained
+  // flag (migration 018) kept in sync with transaction_codings -- plain
+  // indexed boolean, filterable directly and applied *before* .range() below
+  // so pagination reflects the real filtered count. An earlier version of
+  // this resolved matching transaction ids via a separate query and passed
+  // them through .in()/.not("id","in",...); with enough coded transactions
+  // that id list blew past the URL length Supabase-js's GET request can
+  // carry and the whole request 400'd -- silently rendered by the client as
+  // "no transactions match these filters." retreatId's id list stays small
+  // (bounded by one retreat's transaction count) so it keeps the same
+  // pre-.range() id-list approach.
+  const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
+
   let query = supabase
     .from("transactions")
     .select(TRANSACTION_WITH_CODING_SELECT)
     .eq("is_deleted_by_source", false)
     .eq("is_overhead", scope === "overhead")
-    .order("posted_date", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order("posted_date", { ascending: false });
 
   if (source) query = query.eq("source", source);
   if (account) query = query.eq("account_label", account);
   if (startDate) query = query.gte("posted_date", startDate);
   if (endDate) query = query.lte("posted_date", endDate);
   if (search) query = query.ilike("description", `%${search}%`);
+  if (coded === "uncoded") query = query.eq("is_coded", false);
+  if (coded === "coded") query = query.eq("is_coded", true);
+
+  if (retreatId) {
+    const { data, error } = await supabase
+      .from("transaction_codings")
+      .select("transaction_id")
+      .eq("retreat_id", retreatId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    const ids = Array.from(new Set((data ?? []).map((r) => r.transaction_id as string)));
+    query = query.in("id", ids.length > 0 ? ids : [NO_MATCH_ID]);
+  }
+
+  query = query.range(offset, offset + limit - 1);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  // coded/uncoded and retreatId filters applied post-query: filtering an
-  // outer-joined relationship's presence isn't expressible through the query
-  // builder without a second round trip.
-  //
-  // transaction_codings.transaction_id is no longer that table's primary key
-  // (see migration 014 -- a transaction can be split across multiple coding
-  // rows), so PostgREST returns `codings` as an array. A transaction split
-  // across two retreats matches the retreatId filter under either retreat,
-  // which is the correct behavior -- each split row is an independent fact.
-  let rows = (data ?? []) as RawTransactionWithCodings[];
-  if (coded === "uncoded") {
-    rows = rows.filter((r) => (r.codings ?? []).length === 0);
-  } else if (coded === "coded") {
-    rows = rows.filter((r) => (r.codings ?? []).length > 0);
-  }
-  if (retreatId) {
-    rows = rows.filter((r) => (r.codings ?? []).some((c) => c.retreat_id === retreatId));
-  }
-
-  const shaped = rows.map(shapeTransactionWithCoding);
+  const shaped = ((data ?? []) as RawTransactionWithCodings[]).map(shapeTransactionWithCoding);
 
   return NextResponse.json({ transactions: shaped });
 }
