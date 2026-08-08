@@ -3,11 +3,13 @@ import type {
   CategoryMonthlyAmount,
   CategoryType,
   ClientSummary,
+  ExpectedRetreatFinancials,
   MonthlyPnl,
   OwnerSummary,
   PnlOverheadLine,
   PnlStatement,
   RetreatActuals,
+  RetreatStatus,
   RetreatSummary,
 } from "@/types";
 import { getCategories } from "@/lib/categories";
@@ -416,4 +418,62 @@ export async function getPnlStatement(
     netIncomeByMonth,
     net_income,
   };
+}
+
+/**
+ * "Expected" financials per retreat: audited retreats report their actual
+ * coded revenue/profit; ongoing retreats fall back to the contracted
+ * figures, since an ongoing retreat's actuals are incomplete by
+ * definition. Feeds both the owner-only Expected P&L tab and the
+ * company-wide dashboard totals (summed by the caller) from one shared
+ * blending rule.
+ */
+export async function getExpectedRetreatFinancials(
+  supabase: SupabaseClient,
+  filters: { startMonth?: string; endMonth?: string } = {}
+): Promise<ExpectedRetreatFinancials[]> {
+  const [summaries, retreatsResp] = await Promise.all([
+    getRetreatSummaries(supabase, filters),
+    (() => {
+      let q = supabase
+        .from("retreats")
+        .select("id, name, retreat_month, status, contract_value, contract_profit, passenger_count, client:clients(name)");
+      if (filters.startMonth) q = q.gte("retreat_month", filters.startMonth);
+      if (filters.endMonth) q = q.lte("retreat_month", filters.endMonth);
+      return q;
+    })(),
+  ]);
+  if (retreatsResp.error) throw retreatsResp.error;
+
+  const summaryByRetreatId = new Map(summaries.map((s) => [s.retreat_id, s]));
+
+  return (retreatsResp.data ?? [])
+    .map((r) => {
+      const summary = summaryByRetreatId.get(r.id as string);
+      const client = Array.isArray(r.client) ? r.client[0] : r.client;
+      const status = r.status as RetreatStatus;
+      const actual_revenue = summary?.revenue ?? 0;
+      const actual_profit = summary?.gross_profit ?? 0;
+      const contract_value = r.contract_value as number | null;
+      const contract_profit = r.contract_profit as number | null;
+      const isAudited = status === "audited";
+
+      return {
+        retreat_id: r.id as string,
+        client_name: (client as { name: string } | null)?.name ?? "Unknown",
+        retreat_name: r.name as string,
+        retreat_month: r.retreat_month as string,
+        status,
+        passenger_count: r.passenger_count as number | null,
+        contract_value,
+        contract_profit,
+        actual_revenue,
+        actual_profit,
+        final_revenue: isAudited ? actual_revenue : (contract_value ?? 0),
+        final_profit: isAudited ? actual_profit : (contract_profit ?? 0),
+      };
+    })
+    .sort(
+      (a, b) => a.retreat_month.localeCompare(b.retreat_month) || a.retreat_name.localeCompare(b.retreat_name)
+    );
 }

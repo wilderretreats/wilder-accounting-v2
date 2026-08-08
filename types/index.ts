@@ -64,6 +64,11 @@ export interface Retreat {
   status: RetreatStatus;
   ops_owner_id: string | null;
   notes: string | null;
+  /** Contracted/quoted revenue, entered independent of coded transactions -- the forecast for ongoing retreats. */
+  contract_value: number | null;
+  /** Contracted/quoted profit, same forecast purpose as contract_value. */
+  contract_profit: number | null;
+  passenger_count: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -298,4 +303,29 @@ export interface PnlStatement {
   overhead_total: number;
   netIncomeByMonth: Record<string, number>;
   net_income: number;
+}
+
+/**
+ * One retreat's "expected" financials: audited retreats use their actual
+ * coded revenue/profit; ongoing retreats fall back to the contracted
+ * figures as a forecast, since their actuals are by definition incomplete.
+ * Backs both the owner-only Expected P&L tab (per-retreat detail) and the
+ * company-wide dashboard totals (summed across retreats) with one shared
+ * blending rule, so the two views can never disagree on the definition.
+ */
+export interface ExpectedRetreatFinancials {
+  retreat_id: string;
+  client_name: string;
+  retreat_name: string;
+  retreat_month: string;
+  status: RetreatStatus;
+  passenger_count: number | null;
+  contract_value: number | null;
+  contract_profit: number | null;
+  actual_revenue: number;
+  actual_profit: number;
+  /** actual_revenue if audited, else contract_value (0 if not yet set). */
+  final_revenue: number;
+  /** actual_profit if audited, else contract_profit (0 if not yet set). */
+  final_profit: number;
 }

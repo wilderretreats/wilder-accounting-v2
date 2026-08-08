@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getRetreatSummary } from "@/lib/reports/queries";
 import { RetreatSummaryCard } from "@/components/retreats/RetreatSummaryCard";
+import { ContractDetailsCard } from "@/components/retreats/ContractDetailsCard";
 import { LockControl } from "@/components/retreats/LockControl";
 import { OwnerControl } from "@/components/retreats/OwnerControl";
 import { CodedTransactionsTable, type CodedTransactionRow } from "@/components/retreats/CodedTransactionsTable";
@@ -67,6 +68,14 @@ export default async function RetreatDetailPage({
       <LockControl retreatId={id} activeLock={activeLock} canUnlock={profile.role === "admin"} />
 
       {summary && <RetreatSummaryCard summary={summary} />}
+
+      <ContractDetailsCard
+        retreatId={id}
+        contractValue={retreat.contract_value}
+        contractProfit={retreat.contract_profit}
+        passengerCount={retreat.passenger_count}
+        actualRevenue={summary?.revenue ?? 0}
+      />
 
       <CategoryBreakdownReport rows={(codedTransactions ?? []) as unknown as CodedTransactionRow[]} />
 

@@ -43,6 +43,9 @@ const patchSchema = z.object({
   endDate: z.string().nullable().optional(),
   opsOwnerId: z.string().uuid().nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
+  contractValue: z.number().nullable().optional(),
+  contractProfit: z.number().nullable().optional(),
+  passengerCount: z.number().int().nonnegative().nullable().optional(),
 });
 
 export async function PATCH(
@@ -68,6 +71,9 @@ export async function PATCH(
   if (d.endDate !== undefined) updates.end_date = d.endDate;
   if (d.opsOwnerId !== undefined) updates.ops_owner_id = d.opsOwnerId;
   if (d.notes !== undefined) updates.notes = d.notes;
+  if (d.contractValue !== undefined) updates.contract_value = d.contractValue;
+  if (d.contractProfit !== undefined) updates.contract_profit = d.contractProfit;
+  if (d.passengerCount !== undefined) updates.passenger_count = d.passengerCount;
 
   const supabase = await createClient();
   const { data, error } = await supabase

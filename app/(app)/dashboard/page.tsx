@@ -1,8 +1,9 @@
 import { isOwner, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getCategoryMonthlyBreakdown, getMonthlyPnl } from "@/lib/reports/queries";
+import { getCategoryMonthlyBreakdown, getExpectedRetreatFinancials, getMonthlyPnl } from "@/lib/reports/queries";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { CategoryMonthlyTable } from "@/components/dashboard/CategoryMonthlyTable";
+import { ContractedVsFinalCard } from "@/components/dashboard/ContractedVsFinalCard";
 import { formatCurrency, formatPercent, formatMonth } from "@/lib/utils";
 
 export default async function DashboardPage() {
@@ -11,10 +12,11 @@ export default async function DashboardPage() {
   const supabase = await createClient();
 
   const yearStart = `${new Date().getFullYear()}-01-01`;
-  const [monthlyPnl, categoryBreakdown] = await Promise.all([
+  const [monthlyPnl, categoryBreakdown, expectedRetreats] = await Promise.all([
     getMonthlyPnl(supabase, { startMonth: yearStart }),
     // Category-by-month breakdown is owner-only -- skip the fetch entirely for everyone else.
     viewerIsOwner ? getCategoryMonthlyBreakdown(supabase, { startMonth: yearStart }) : Promise.resolve([]),
+    getExpectedRetreatFinancials(supabase, { startMonth: yearStart }),
   ]);
   const months = monthlyPnl.map((m) => m.month);
 
@@ -30,6 +32,20 @@ export default async function DashboardPage() {
   const grossProfit = ytd.revenue - ytd.cogs;
   const margin = ytd.revenue !== 0 ? grossProfit / ytd.revenue : null;
 
+  // Visible to everyone, unlike the owner-only category breakdown above --
+  // contracted = quoted at signing; final = actual for audited retreats,
+  // contracted (as a forecast) for ongoing ones -- see
+  // getExpectedRetreatFinancials for the shared blending rule.
+  const contractedVsFinal = expectedRetreats.reduce(
+    (acc, r) => ({
+      contractedRevenue: acc.contractedRevenue + (r.contract_value ?? 0),
+      contractedProfit: acc.contractedProfit + (r.contract_profit ?? 0),
+      finalRevenue: acc.finalRevenue + r.final_revenue,
+      finalProfit: acc.finalProfit + r.final_profit,
+    }),
+    { contractedRevenue: 0, contractedProfit: 0, finalRevenue: 0, finalProfit: 0 }
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-zinc-900">Dashboard</h1>
@@ -40,6 +56,26 @@ export default async function DashboardPage() {
         <StatCard label="Margin YTD" value={formatPercent(margin)} />
         <StatCard label="Net Income YTD" value={formatCurrency(ytd.net_income)} />
       </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="YTD Contracted Revenue" value={formatCurrency(contractedVsFinal.contractedRevenue)} />
+        <StatCard label="YTD Contracted Profit" value={formatCurrency(contractedVsFinal.contractedProfit)} />
+        <StatCard label="YTD Final Revenue" value={formatCurrency(contractedVsFinal.finalRevenue)} />
+        <StatCard label="YTD Final Profit" value={formatCurrency(contractedVsFinal.finalProfit)} />
+      </div>
+
+      <ContractedVsFinalCard
+        revenue={{
+          label: "Revenue",
+          contracted: contractedVsFinal.contractedRevenue,
+          final: contractedVsFinal.finalRevenue,
+        }}
+        profit={{
+          label: "Profit",
+          contracted: contractedVsFinal.contractedProfit,
+          final: contractedVsFinal.finalProfit,
+        }}
+      />
 
       <Card>
         <CardHeader>

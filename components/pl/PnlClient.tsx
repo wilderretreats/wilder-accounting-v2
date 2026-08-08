@@ -5,13 +5,17 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { AddOverheadCategoryForm } from "./AddOverheadCategoryForm";
+import { ExpectedPnlTable } from "./ExpectedPnlTable";
 import { formatCurrency, formatMonthShort } from "@/lib/utils";
 import type { PnlStatement } from "@/types";
 
 const currentYear = new Date().getFullYear();
 const YEARS = [currentYear, currentYear - 1, currentYear - 2];
 
+type Tab = "monthly" | "expected";
+
 export function PnlClient() {
+  const [tab, setTab] = useState<Tab>("monthly");
   const [year, setYear] = useState(currentYear);
   const [statement, setStatement] = useState<PnlStatement | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +44,19 @@ export function PnlClient() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2 print:hidden">
+        <div className="flex gap-1 rounded-md bg-zinc-100 p-1">
+          {(["monthly", "expected"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`rounded px-3 py-1.5 text-sm font-medium ${
+                tab === t ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500"
+              }`}
+            >
+              {t === "monthly" ? "Monthly P&L" : "Expected P&L"}
+            </button>
+          ))}
+        </div>
         <Select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-28">
           {YEARS.map((y) => (
             <option key={y} value={y}>
@@ -47,25 +64,31 @@ export function PnlClient() {
             </option>
           ))}
         </Select>
-        <AddOverheadCategoryForm
-          parents={(statement?.overhead ?? []).map((l) => ({ id: l.id, name: l.name }))}
-          onAdded={load}
-        />
-        <div className="ml-auto flex gap-2">
-          <Button variant="secondary" onClick={exportCsv}>
-            Export CSV
-          </Button>
-          <Button variant="secondary" onClick={() => window.print()}>
-            Print / Save as PDF
-          </Button>
-        </div>
+        {tab === "monthly" && (
+          <>
+            <AddOverheadCategoryForm
+              parents={(statement?.overhead ?? []).map((l) => ({ id: l.id, name: l.name }))}
+              onAdded={load}
+            />
+            <div className="ml-auto flex gap-2">
+              <Button variant="secondary" onClick={exportCsv}>
+                Export CSV
+              </Button>
+              <Button variant="secondary" onClick={() => window.print()}>
+                Print / Save as PDF
+              </Button>
+            </div>
+          </>
+        )}
       </div>
 
       <p className="hidden text-sm text-zinc-500 print:block">
         {year} — Wilder Retreats Profit &amp; Loss, by month
       </p>
 
-      {loading || !statement ? (
+      {tab === "expected" ? (
+        <ExpectedPnlTable startMonth={startMonth} endMonth={endMonth} />
+      ) : loading || !statement ? (
         <p className="text-sm text-zinc-400">Loading…</p>
       ) : (
         <Card>
