@@ -6,7 +6,7 @@ import { writeAuditLog } from "@/lib/audit";
 
 const schema = z.object({
   email: z.string().email(),
-  role: z.enum(["admin", "ops", "viewer"]).default("ops"),
+  role: z.enum(["admin", "ops", "ops_manager", "viewer"]).default("ops"),
 });
 
 /**

@@ -65,7 +65,11 @@ export default async function RetreatDetailPage({
         </Badge>
       </div>
 
-      <LockControl retreatId={id} activeLock={activeLock} canUnlock={profile.role === "admin"} />
+      <LockControl
+        retreatId={id}
+        activeLock={activeLock}
+        canUnlock={profile.role === "admin" || profile.role === "ops_manager"}
+      />
 
       {summary && <RetreatSummaryCard summary={summary} />}
 

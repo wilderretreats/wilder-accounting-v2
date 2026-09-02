@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
 
 const schema = z.object({
-  role: z.enum(["admin", "ops", "viewer"]).optional(),
+  role: z.enum(["admin", "ops", "ops_manager", "viewer"]).optional(),
   isActive: z.boolean().optional(),
 });
 

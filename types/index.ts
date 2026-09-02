@@ -3,7 +3,7 @@
 // `supabase gen types typescript` — but report/computed types below stay
 // hand-written regardless, since they don't correspond to real tables.
 
-export type Role = "admin" | "ops" | "viewer";
+export type Role = "admin" | "ops" | "ops_manager" | "viewer";
 
 export interface Profile {
   id: string;

@@ -90,6 +90,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
             />
             <Select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Role)}>
               <option value="admin">Admin</option>
+              <option value="ops_manager">Ops Manager</option>
               <option value="ops">Ops</option>
               <option value="viewer">Viewer</option>
             </Select>
@@ -126,6 +127,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
                       disabled={u.id === currentUserId}
                     >
                       <option value="admin">Admin</option>
+                      <option value="ops_manager">Ops Manager</option>
                       <option value="ops">Ops</option>
                       <option value="viewer">Viewer</option>
                     </Select>

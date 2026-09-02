@@ -14,7 +14,7 @@ import { writeAuditLog } from "@/lib/audit";
 export async function POST() {
   const authed = await getAuthedProfile();
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!hasRole(authed.profile, ["admin", "ops"])) {
+  if (!hasRole(authed.profile, ["admin", "ops", "ops_manager"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

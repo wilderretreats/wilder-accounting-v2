@@ -3,15 +3,15 @@ import { getAuthedProfile, hasRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 
-/** Admin-only: unlocking a reviewed period is an explicit override, not a routine ops action. */
+/** Admin/ops_manager-only: unlocking a reviewed period is an explicit override, not a routine ops action. */
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authed = await getAuthedProfile();
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!hasRole(authed.profile, ["admin"])) {
-    return NextResponse.json({ error: "Only admins can unlock a retreat" }, { status: 403 });
+  if (!hasRole(authed.profile, ["admin", "ops_manager"])) {
+    return NextResponse.json({ error: "Only admins or ops managers can unlock a retreat" }, { status: 403 });
   }
 
   const { id: retreatId } = await params;

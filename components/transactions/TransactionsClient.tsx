@@ -15,10 +15,10 @@ type CodedFilter = "all" | "coded" | "uncoded";
 
 const PAGE_SIZE = 200;
 
-/** Ops can delete transactions only when they entered them by hand -- admin can delete any. */
+/** Ops/ops_manager can delete transactions only when they entered them by hand -- admin can delete any. */
 function canDeleteTransaction(role: Role, transaction: TransactionWithCoding): boolean {
   if (role === "admin") return true;
-  if (role === "ops") return transaction.source === "manual";
+  if (role === "ops" || role === "ops_manager") return transaction.source === "manual";
   return false;
 }
 
