@@ -16,25 +16,30 @@ import { getCategories } from "@/lib/categories";
 
 /**
  * Derives gross profit/margin and the AllFly "ex-flights" view from the raw
- * revenue/cogs/flight_cogs sums in the retreat_actuals DB view. Revenue is
- * identical in both views — only the COGS side changes (Flights/Airfare
- * excluded) — per the confirmed AllFly behavior: Wilder collects flight
- * revenue from the client and pays the flight vendor, but margin on that
- * piece is thin, so leadership wants a "ground services only" margin too.
+ * revenue/cogs/flight_cogs sums in the retreat_actuals DB view. Wilder
+ * collects flight revenue from the client and pays it straight to the
+ * flight vendor at ~zero margin, so it's a pass-through that distorts the
+ * margin on the services Wilder actually marks up. Excluding it means
+ * excluding it from BOTH sides: revenue and COGS drop by the same
+ * flight_cogs amount, so gross profit is unchanged (flights contributed
+ * $0 of it either way) and only the margin moves, now measured against
+ * the smaller, flights-out revenue base.
  */
 function deriveRetreatSummary(actuals: RetreatActuals): RetreatSummary {
   const gross_profit = actuals.revenue - actuals.cogs;
   const margin = actuals.revenue !== 0 ? gross_profit / actuals.revenue : null;
 
+  const revenue_ex_flights = actuals.revenue - actuals.flight_cogs;
   const cogs_ex_flights = actuals.cogs - actuals.flight_cogs;
-  const gross_profit_ex_flights = actuals.revenue - cogs_ex_flights;
+  const gross_profit_ex_flights = revenue_ex_flights - cogs_ex_flights; // always === gross_profit
   const margin_ex_flights =
-    actuals.revenue !== 0 ? gross_profit_ex_flights / actuals.revenue : null;
+    revenue_ex_flights !== 0 ? gross_profit_ex_flights / revenue_ex_flights : null;
 
   return {
     ...actuals,
     gross_profit,
     margin,
+    revenue_ex_flights,
     cogs_ex_flights,
     gross_profit_ex_flights,
     margin_ex_flights,

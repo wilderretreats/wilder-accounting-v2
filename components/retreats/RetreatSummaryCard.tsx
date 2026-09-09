@@ -8,6 +8,7 @@ import type { RetreatSummary } from "@/types";
 export function RetreatSummaryCard({ summary }: { summary: RetreatSummary }) {
   const [exFlights, setExFlights] = useState(false);
 
+  const revenue = exFlights ? summary.revenue_ex_flights : summary.revenue;
   const cogs = exFlights ? summary.cogs_ex_flights : summary.cogs;
   const grossProfit = exFlights ? summary.gross_profit_ex_flights : summary.gross_profit;
   const margin = exFlights ? summary.margin_ex_flights : summary.margin;
@@ -28,15 +29,16 @@ export function RetreatSummaryCard({ summary }: { summary: RetreatSummary }) {
         )}
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="Revenue" value={formatCurrency(summary.revenue)} />
+        <Stat label="Revenue" value={formatCurrency(revenue)} />
         <Stat label="COGS" value={formatCurrency(cogs)} />
         <Stat label="Gross Profit" value={formatCurrency(grossProfit)} />
         <Stat label="Margin" value={formatPercent(margin)} />
       </div>
       {exFlights && (
         <p className="text-xs text-zinc-400">
-          Flights/Airfare cost of {formatCurrency(summary.flight_cogs)} excluded from COGS above.
-          Revenue is unchanged either way.
+          Flights/Airfare revenue and cost of {formatCurrency(summary.flight_cogs)} excluded from both
+          sides above. Gross profit is unchanged — Wilder makes ~$0 margin on flights either way — only
+          the margin % moves, now measured against the smaller, flights-out revenue.
         </p>
       )}
     </div>

@@ -224,10 +224,17 @@ export interface RetreatActuals {
   flight_cogs: number;
 }
 
-/** RetreatActuals with derived fields, including both AllFly views. */
+/**
+ * RetreatActuals with derived fields, including the AllFly ex-flights view:
+ * flights are a zero-margin pass-through, so excluding one excludes the
+ * other -- gross_profit_ex_flights is always equal to gross_profit, and
+ * only margin_ex_flights moves (measured against the smaller, flights-out
+ * revenue base).
+ */
 export interface RetreatSummary extends RetreatActuals {
   gross_profit: number;
   margin: number | null;
+  revenue_ex_flights: number;
   cogs_ex_flights: number;
   gross_profit_ex_flights: number;
   margin_ex_flights: number | null;

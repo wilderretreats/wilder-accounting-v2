@@ -54,6 +54,7 @@ export async function GET(request: Request) {
           COGS: r.cogs.toFixed(2),
           "Gross Profit": r.gross_profit.toFixed(2),
           Margin: r.margin !== null ? (r.margin * 100).toFixed(2) + "%" : "",
+          "Revenue (ex-flights)": r.revenue_ex_flights.toFixed(2),
           "COGS (ex-flights)": r.cogs_ex_flights.toFixed(2),
           "Margin (ex-flights)":
             r.margin_ex_flights !== null ? (r.margin_ex_flights * 100).toFixed(2) + "%" : "",
