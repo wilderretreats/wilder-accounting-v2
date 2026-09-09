@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Papa from "papaparse";
 import { getAuthedProfile, isOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getPnlStatement } from "@/lib/reports/queries";
+import { getExpectedPnlStatement, getPnlStatement } from "@/lib/reports/queries";
 import { formatMonthShort } from "@/lib/utils";
 
 export async function GET(request: Request) {
@@ -17,8 +17,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "startMonth and endMonth are required" }, { status: 400 });
   }
 
+  const isExpected = url.searchParams.get("mode") === "expected";
   const supabase = await createClient();
-  const statement = await getPnlStatement(supabase, { startMonth, endMonth });
+  const statement = isExpected
+    ? await getExpectedPnlStatement(supabase, { startMonth, endMonth })
+    : await getPnlStatement(supabase, { startMonth, endMonth });
 
   const rows: Record<string, string>[] = [];
   function pushRow(section: string, category: string, byMonth: Record<string, number>, total: number) {
@@ -62,7 +65,7 @@ export async function GET(request: Request) {
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv",
-      "Content-Disposition": `attachment; filename="pl-${startMonth}-to-${endMonth}.csv"`,
+      "Content-Disposition": `attachment; filename="pl-${isExpected ? "expected-" : ""}${startMonth}-to-${endMonth}.csv"`,
     },
   });
 }

@@ -30,7 +30,7 @@ export function PnlStatementTable({
       </CardHeader>
       <CardBody className="overflow-x-auto">
         {note && <p className="mb-3 text-xs text-zinc-500 print:hidden">{note}</p>}
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
             <tr className="text-left text-zinc-500">
               <th className="pb-2 pr-4">Category</th>
@@ -223,7 +223,7 @@ function Row({
   const amountClass =
     tone === "expense" ? "text-red-600" : tone === "revenue" ? "text-emerald-700" : "text-zinc-900";
   const weightClass = bold ? "font-semibold" : semibold ? "font-medium" : "";
-  const sizeClass = big ? "text-base" : "";
+  const sizeClass = big ? "text-sm" : "";
   const rowClass = [
     border ? "border-t border-zinc-200" : "border-t border-zinc-50",
     big ? "bg-zinc-100" : shaded ? "bg-zinc-100/60" : "hover:bg-zinc-50",

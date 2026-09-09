@@ -37,6 +37,7 @@ export function PnlClient() {
 
   function exportCsv() {
     const params = new URLSearchParams({ startMonth, endMonth });
+    if (tab === "expected") params.set("mode", "expected");
     window.location.href = `/api/pl/export?${params}`;
   }
 
@@ -64,25 +65,23 @@ export function PnlClient() {
           ))}
         </Select>
         {tab === "monthly" && (
-          <>
-            <AddOverheadCategoryForm
-              parents={(statement?.overhead ?? []).map((l) => ({ id: l.id, name: l.name }))}
-              onAdded={load}
-            />
-            <div className="ml-auto flex gap-2">
-              <Button variant="secondary" onClick={exportCsv}>
-                Export CSV
-              </Button>
-              <Button variant="secondary" onClick={() => window.print()}>
-                Print / Save as PDF
-              </Button>
-            </div>
-          </>
+          <AddOverheadCategoryForm
+            parents={(statement?.overhead ?? []).map((l) => ({ id: l.id, name: l.name }))}
+            onAdded={load}
+          />
         )}
+        <div className="ml-auto flex gap-2">
+          <Button variant="secondary" onClick={exportCsv}>
+            Export CSV
+          </Button>
+          <Button variant="secondary" onClick={() => window.print()}>
+            Print / Save as PDF
+          </Button>
+        </div>
       </div>
 
       <p className="hidden text-sm text-zinc-500 print:block">
-        {year} — Wilder Retreats Profit &amp; Loss, by month
+        {year} — Wilder Retreats {tab === "expected" ? "Expected " : ""}Profit &amp; Loss, by month
       </p>
 
       {tab === "expected" ? (
