@@ -315,22 +315,34 @@ function enumerateMonths(startMonth: string, endMonth: string): string[] {
   return months;
 }
 
-/**
- * Company-wide P&L statement across a range of months: Revenue - COGS =
- * Operating Profit up top, then every active overhead category (parent/child,
- * per `sort_order` -- a P&L's line items stay in a fixed order, not resorted
- * by size each period) subtracted down to Net Income, every row broken out
- * by month. Every active overhead category appears even at $0 for every
- * month, so a newly-added one shows up immediately.
- */
-export async function getPnlStatement(
-  supabase: SupabaseClient,
-  opts: { startMonth: string; endMonth: string }
-): Promise<PnlStatement> {
-  const months = enumerateMonths(opts.startMonth, opts.endMonth);
+function sumByMonth(months: string[], rows: Record<string, number>[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const month of months) result[month] = rows.reduce((sum, r) => sum + r[month], 0);
+  return result;
+}
 
-  const [monthlyTotals, overheadCategories, overheadRowsResp] = await Promise.all([
-    getMonthlyPnl(supabase, opts),
+/**
+ * Groups every active overhead category (parent/child, per `sort_order` --
+ * a P&L's line items stay in a fixed order, not resorted by size each
+ * period) into two parallel sections: `overhead` (everything else) and
+ * `taxes` (categories flagged is_tax, e.g. the "Taxes" parent and its
+ * children) -- the split that lets the P&L show a "Net Income before
+ * Taxes" subtotal above the Taxes section. Every active category appears
+ * even at $0 for every month, so a newly-added one shows up immediately.
+ */
+async function getOverheadSections(
+  supabase: SupabaseClient,
+  opts: { startMonth: string; endMonth: string; months: string[] }
+): Promise<{
+  overhead: PnlOverheadLine[];
+  overheadTotalByMonth: Record<string, number>;
+  overhead_total: number;
+  taxes: PnlOverheadLine[];
+  taxesTotalByMonth: Record<string, number>;
+  taxes_total: number;
+}> {
+  const { months } = opts;
+  const [overheadCategories, overheadRowsResp] = await Promise.all([
     getCategories(supabase, { type: "overhead" }),
     supabase
       .from("overhead_monthly_actuals")
@@ -339,6 +351,71 @@ export async function getPnlStatement(
       .lte("month", opts.endMonth),
   ]);
   if (overheadRowsResp.error) throw overheadRowsResp.error;
+
+  const amountByCategoryMonth = new Map<string, number>();
+  for (const row of overheadRowsResp.data ?? []) {
+    amountByCategoryMonth.set(`${row.category_id}:${row.month}`, row.amount as number);
+  }
+  function amountsFor(categoryId: string): Record<string, number> {
+    const byMonth: Record<string, number> = {};
+    for (const month of months) {
+      byMonth[month] = amountByCategoryMonth.get(`${categoryId}:${month}`) ?? 0;
+    }
+    return byMonth;
+  }
+
+  const childrenByParent = new Map<string, typeof overheadCategories>();
+  for (const c of overheadCategories) {
+    if (!c.parent_id) continue;
+    if (!childrenByParent.has(c.parent_id)) childrenByParent.set(c.parent_id, []);
+    childrenByParent.get(c.parent_id)!.push(c);
+  }
+
+  const parents = overheadCategories.filter((c) => c.parent_id === null);
+  function buildLines(parentFilter: (c: (typeof parents)[number]) => boolean): PnlOverheadLine[] {
+    return parents.filter(parentFilter).map((parent) => {
+      const children = (childrenByParent.get(parent.id) ?? []).map((child) => {
+        const byMonth = amountsFor(child.id);
+        return { id: child.id, name: child.name, byMonth, total: sumValues(byMonth) };
+      });
+      // A transaction can be coded directly to the parent category itself.
+      const ownByMonth = amountsFor(parent.id);
+      const byMonth = sumByMonth(months, [ownByMonth, ...children.map((c) => c.byMonth)]);
+      return { id: parent.id, name: parent.name, byMonth, total: sumValues(byMonth), children };
+    });
+  }
+
+  const overhead = buildLines((c) => !c.is_tax);
+  const taxes = buildLines((c) => c.is_tax);
+
+  const overheadTotalByMonth = sumByMonth(months, overhead.map((l) => l.byMonth));
+  const taxesTotalByMonth = sumByMonth(months, taxes.map((l) => l.byMonth));
+
+  return {
+    overhead,
+    overheadTotalByMonth,
+    overhead_total: sumValues(overheadTotalByMonth),
+    taxes,
+    taxesTotalByMonth,
+    taxes_total: sumValues(taxesTotalByMonth),
+  };
+}
+
+/**
+ * Company-wide P&L statement across a range of months: Revenue - COGS =
+ * Operating Profit up top, then non-tax overhead subtracted down to Net
+ * Income Before Taxes, then Taxes subtracted down to Net Income.
+ */
+export async function getPnlStatement(
+  supabase: SupabaseClient,
+  opts: { startMonth: string; endMonth: string }
+): Promise<PnlStatement> {
+  const months = enumerateMonths(opts.startMonth, opts.endMonth);
+
+  const [monthlyTotals, sections] = await Promise.all([
+    getMonthlyPnl(supabase, opts),
+    getOverheadSections(supabase, { ...opts, months }),
+  ]);
 
   const monthlyByMonth = new Map(monthlyTotals.map((m) => [m.month, m]));
   const revenueByMonth: Record<string, number> = {};
@@ -356,51 +433,31 @@ export async function getPnlStatement(
   const cogs = sumValues(cogsByMonth);
   const operating_profit = revenue - cogs;
 
-  const amountByCategoryMonth = new Map<string, number>();
-  for (const row of overheadRowsResp.data ?? []) {
-    amountByCategoryMonth.set(`${row.category_id}:${row.month}`, row.amount as number);
-  }
-  function amountsFor(categoryId: string): Record<string, number> {
-    const byMonth: Record<string, number> = {};
-    for (const month of months) {
-      byMonth[month] = amountByCategoryMonth.get(`${categoryId}:${month}`) ?? 0;
-    }
-    return byMonth;
-  }
-  function sumByMonth(rows: Record<string, number>[]): Record<string, number> {
-    const result: Record<string, number> = {};
-    for (const month of months) result[month] = rows.reduce((sum, r) => sum + r[month], 0);
-    return result;
-  }
+  return buildPnlStatement(opts, months, revenueByMonth, cogsByMonth, operatingProfitByMonth, revenue, cogs, operating_profit, sections);
+}
 
-  const childrenByParent = new Map<string, typeof overheadCategories>();
-  for (const c of overheadCategories) {
-    if (!c.parent_id) continue;
-    if (!childrenByParent.has(c.parent_id)) childrenByParent.set(c.parent_id, []);
-    childrenByParent.get(c.parent_id)!.push(c);
+function buildPnlStatement(
+  opts: { startMonth: string; endMonth: string },
+  months: string[],
+  revenueByMonth: Record<string, number>,
+  cogsByMonth: Record<string, number>,
+  operatingProfitByMonth: Record<string, number>,
+  revenue: number,
+  cogs: number,
+  operating_profit: number,
+  sections: Awaited<ReturnType<typeof getOverheadSections>>
+): PnlStatement {
+  const netIncomeBeforeTaxesByMonth: Record<string, number> = {};
+  for (const month of months) {
+    netIncomeBeforeTaxesByMonth[month] = operatingProfitByMonth[month] - sections.overheadTotalByMonth[month];
   }
-
-  const overhead: PnlOverheadLine[] = overheadCategories
-    .filter((c) => c.parent_id === null)
-    .map((parent) => {
-      const children = (childrenByParent.get(parent.id) ?? []).map((child) => {
-        const byMonth = amountsFor(child.id);
-        return { id: child.id, name: child.name, byMonth, total: sumValues(byMonth) };
-      });
-      // A transaction can be coded directly to the parent category itself.
-      const ownByMonth = amountsFor(parent.id);
-      const byMonth = sumByMonth([ownByMonth, ...children.map((c) => c.byMonth)]);
-      return { id: parent.id, name: parent.name, byMonth, total: sumValues(byMonth), children };
-    });
-
-  const overheadTotalByMonth = sumByMonth(overhead.map((l) => l.byMonth));
-  const overhead_total = sumValues(overheadTotalByMonth);
+  const net_income_before_taxes = operating_profit - sections.overhead_total;
 
   const netIncomeByMonth: Record<string, number> = {};
   for (const month of months) {
-    netIncomeByMonth[month] = operatingProfitByMonth[month] - overheadTotalByMonth[month];
+    netIncomeByMonth[month] = netIncomeBeforeTaxesByMonth[month] - sections.taxesTotalByMonth[month];
   }
-  const net_income = operating_profit - overhead_total;
+  const net_income = net_income_before_taxes - sections.taxes_total;
 
   return {
     startMonth: opts.startMonth,
@@ -412,12 +469,89 @@ export async function getPnlStatement(
     revenue,
     cogs,
     operating_profit,
-    overhead,
-    overheadTotalByMonth,
-    overhead_total,
+    overhead: sections.overhead,
+    overheadTotalByMonth: sections.overheadTotalByMonth,
+    overhead_total: sections.overhead_total,
+    netIncomeBeforeTaxesByMonth,
+    net_income_before_taxes,
+    taxes: sections.taxes,
+    taxesTotalByMonth: sections.taxesTotalByMonth,
+    taxes_total: sections.taxes_total,
     netIncomeByMonth,
     net_income,
   };
+}
+
+/**
+ * The Expected P&L statement, laid out identically to the actuals-based
+ * getPnlStatement, but with revenue/COGS blended per retreat: audited
+ * retreats contribute their actual coded revenue/COGS, ongoing retreats
+ * contribute their contracted figures instead (contract COGS = contract
+ * value - contract profit) since their actuals are incomplete by
+ * definition. Overhead/Taxes have no contract equivalent, so they come
+ * from the same actuals as the Monthly P&L.
+ */
+export async function getExpectedPnlStatement(
+  supabase: SupabaseClient,
+  opts: { startMonth: string; endMonth: string }
+): Promise<PnlStatement> {
+  const months = enumerateMonths(opts.startMonth, opts.endMonth);
+
+  const [retreatsResp, actualsRows, sections] = await Promise.all([
+    supabase
+      .from("retreats")
+      .select("id, retreat_month, status, contract_value, contract_profit")
+      .gte("retreat_month", opts.startMonth)
+      .lte("retreat_month", opts.endMonth),
+    supabase
+      .from("retreat_actuals")
+      .select("retreat_id, revenue, cogs")
+      .gte("retreat_month", opts.startMonth)
+      .lte("retreat_month", opts.endMonth),
+    getOverheadSections(supabase, { ...opts, months }),
+  ]);
+  if (retreatsResp.error) throw retreatsResp.error;
+  if (actualsRows.error) throw actualsRows.error;
+
+  const actualsByRetreatId = new Map(
+    (actualsRows.data ?? []).map((row) => [
+      row.retreat_id as string,
+      { revenue: row.revenue as number, cogs: row.cogs as number },
+    ])
+  );
+
+  const revenueByMonth: Record<string, number> = {};
+  const cogsByMonth: Record<string, number> = {};
+  for (const month of months) {
+    revenueByMonth[month] = 0;
+    cogsByMonth[month] = 0;
+  }
+
+  for (const retreat of retreatsResp.data ?? []) {
+    const month = retreat.retreat_month as string;
+    if (!(month in revenueByMonth)) continue;
+    const isAudited = (retreat.status as RetreatStatus) === "audited";
+    if (isAudited) {
+      const actual = actualsByRetreatId.get(retreat.id as string);
+      revenueByMonth[month] += actual?.revenue ?? 0;
+      cogsByMonth[month] += actual?.cogs ?? 0;
+    } else {
+      const contractValue = (retreat.contract_value as number | null) ?? 0;
+      const contractProfit = (retreat.contract_profit as number | null) ?? 0;
+      revenueByMonth[month] += contractValue;
+      cogsByMonth[month] += contractValue - contractProfit;
+    }
+  }
+
+  const operatingProfitByMonth: Record<string, number> = {};
+  for (const month of months) {
+    operatingProfitByMonth[month] = revenueByMonth[month] - cogsByMonth[month];
+  }
+  const revenue = sumValues(revenueByMonth);
+  const cogs = sumValues(cogsByMonth);
+  const operating_profit = revenue - cogs;
+
+  return buildPnlStatement(opts, months, revenueByMonth, cogsByMonth, operatingProfitByMonth, revenue, cogs, operating_profit, sections);
 }
 
 /**

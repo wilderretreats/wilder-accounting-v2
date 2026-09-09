@@ -39,6 +39,7 @@ export interface Category {
   parent_id: string | null;
   name: string;
   is_flight_cost: boolean;
+  is_tax: boolean;
   is_active: boolean;
   sort_order: number;
   created_by: string | null;
@@ -283,9 +284,11 @@ export interface PnlOverheadLine {
 
 /**
  * A full company-wide P&L statement across a range of months: Revenue -
- * COGS = Operating Profit up top, then every active overhead category
- * (grouped parent/child, zero-amount categories included) subtracted down
- * to Net Income -- every row broken out by month plus a period total.
+ * COGS = Operating Profit up top, then every active non-tax overhead
+ * category (grouped parent/child, zero-amount categories included)
+ * subtracted down to Net Income Before Taxes, then the Taxes category
+ * (same grouped shape) subtracted down to Net Income -- every row broken
+ * out by month plus a period total.
  */
 export interface PnlStatement {
   startMonth: string;
@@ -298,9 +301,16 @@ export interface PnlStatement {
   revenue: number;
   cogs: number;
   operating_profit: number;
+  /** Every active overhead category except is_tax ones. */
   overhead: PnlOverheadLine[];
   overheadTotalByMonth: Record<string, number>;
   overhead_total: number;
+  netIncomeBeforeTaxesByMonth: Record<string, number>;
+  net_income_before_taxes: number;
+  /** The is_tax overhead categories (e.g. "Taxes" and its children), broken out on their own. */
+  taxes: PnlOverheadLine[];
+  taxesTotalByMonth: Record<string, number>;
+  taxes_total: number;
   netIncomeByMonth: Record<string, number>;
   net_income: number;
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedProfile, isOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getExpectedRetreatFinancials } from "@/lib/reports/queries";
+import { getExpectedPnlStatement } from "@/lib/reports/queries";
 
 export async function GET(request: Request) {
   const authed = await getAuthedProfile();
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const retreats = await getExpectedRetreatFinancials(supabase, { startMonth, endMonth });
+  const statement = await getExpectedPnlStatement(supabase, { startMonth, endMonth });
 
-  return NextResponse.json({ retreats });
+  return NextResponse.json({ statement });
 }

@@ -41,6 +41,20 @@ export async function GET(request: Request) {
     }
   }
   pushRow("Overhead", "Total Overhead", statement.overheadTotalByMonth, statement.overhead_total);
+  pushRow(
+    "Net Income Before Taxes",
+    "",
+    statement.netIncomeBeforeTaxesByMonth,
+    statement.net_income_before_taxes
+  );
+
+  for (const line of statement.taxes) {
+    pushRow("Taxes", line.name, line.byMonth, line.total);
+    for (const child of line.children) {
+      pushRow("Taxes", `  ${child.name}`, child.byMonth, child.total);
+    }
+  }
+  pushRow("Taxes", "Total Taxes", statement.taxesTotalByMonth, statement.taxes_total);
   pushRow("Net Income", "", statement.netIncomeByMonth, statement.net_income);
 
   const csv = Papa.unparse(rows);

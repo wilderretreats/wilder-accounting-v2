@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { AddOverheadCategoryForm } from "./AddOverheadCategoryForm";
 import { ExpectedPnlTable } from "./ExpectedPnlTable";
-import { formatCurrency, formatMonthShort } from "@/lib/utils";
+import { PnlStatementTable } from "./PnlStatementTable";
 import type { PnlStatement } from "@/types";
 
 const currentYear = new Date().getFullYear();
@@ -91,155 +90,8 @@ export function PnlClient() {
       ) : loading || !statement ? (
         <p className="text-sm text-zinc-400">Loading…</p>
       ) : (
-        <Card>
-          <CardHeader className="print:hidden">
-            <h2 className="text-sm font-semibold text-zinc-900">{year}, by month</h2>
-          </CardHeader>
-          <CardBody className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-zinc-500">
-                  <th className="pb-2 pr-4">Category</th>
-                  {statement.months.map((m) => (
-                    <th key={m} className="pb-2 pr-4 text-right">
-                      {formatMonthShort(m)}
-                    </th>
-                  ))}
-                  <th className="pb-2 text-right">Total</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                <Row
-                  label="Revenue"
-                  months={statement.months}
-                  byMonth={statement.revenueByMonth}
-                  total={statement.revenue}
-                  tone="revenue"
-                />
-                <Row
-                  label="COGS"
-                  months={statement.months}
-                  byMonth={statement.cogsByMonth}
-                  total={statement.cogs}
-                  tone="expense"
-                />
-                <Row
-                  label="Operating Profit"
-                  months={statement.months}
-                  byMonth={statement.operatingProfitByMonth}
-                  total={statement.operating_profit}
-                  bold
-                  border
-                />
-              </tbody>
-
-              <tbody>
-                <tr>
-                  <td
-                    colSpan={statement.months.length + 2}
-                    className="pt-5 pb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500"
-                  >
-                    Overhead
-                  </td>
-                </tr>
-                {statement.overhead.map((line) => (
-                  <OverheadSection key={line.id} line={line} months={statement.months} />
-                ))}
-                <Row
-                  label="Total Overhead"
-                  months={statement.months}
-                  byMonth={statement.overheadTotalByMonth}
-                  total={statement.overhead_total}
-                  tone="expense"
-                  bold
-                  border
-                />
-              </tbody>
-
-              <tbody>
-                <Row
-                  label="Net Income"
-                  months={statement.months}
-                  byMonth={statement.netIncomeByMonth}
-                  total={statement.net_income}
-                  bold
-                  border
-                  big
-                />
-              </tbody>
-            </table>
-          </CardBody>
-        </Card>
+        <PnlStatementTable statement={statement} title={`${year}, by month`} />
       )}
     </div>
-  );
-}
-
-function OverheadSection({
-  line,
-  months,
-}: {
-  line: PnlStatement["overhead"][number];
-  months: string[];
-}) {
-  return (
-    <>
-      <Row label={line.name} months={months} byMonth={line.byMonth} total={line.total} tone="expense" semibold />
-      {line.children.map((child) => (
-        <Row
-          key={child.id}
-          label={child.name}
-          months={months}
-          byMonth={child.byMonth}
-          total={child.total}
-          tone="expense"
-          indent
-        />
-      ))}
-    </>
-  );
-}
-
-function Row({
-  label,
-  months,
-  byMonth,
-  total,
-  tone,
-  bold,
-  semibold,
-  border,
-  big,
-  indent,
-}: {
-  label: string;
-  months: string[];
-  byMonth: Record<string, number>;
-  total: number;
-  tone?: "revenue" | "expense";
-  bold?: boolean;
-  semibold?: boolean;
-  border?: boolean;
-  big?: boolean;
-  indent?: boolean;
-}) {
-  const amountClass =
-    tone === "expense" ? "text-red-600" : tone === "revenue" ? "text-emerald-700" : "text-zinc-900";
-  const weightClass = bold ? "font-semibold" : semibold ? "font-medium" : "";
-  const sizeClass = big ? "text-base" : "";
-
-  return (
-    <tr className={border ? "border-t border-zinc-200" : "border-t border-zinc-50"}>
-      <td className={`py-1.5 pr-4 ${indent ? "pl-6 text-zinc-600" : "text-zinc-800"} ${weightClass} ${sizeClass}`}>
-        {label}
-      </td>
-      {months.map((m) => (
-        <td key={m} className={`py-1.5 pr-4 text-right ${amountClass} ${weightClass} ${sizeClass}`}>
-          {formatCurrency(byMonth[m] ?? 0)}
-        </td>
-      ))}
-      <td className={`py-1.5 text-right ${amountClass} ${weightClass} ${sizeClass}`}>{formatCurrency(total)}</td>
-    </tr>
   );
 }
