@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { getRetreatSummary } from "@/lib/reports/queries";
 import { RetreatSummaryCard } from "@/components/retreats/RetreatSummaryCard";
 import { ContractDetailsCard } from "@/components/retreats/ContractDetailsCard";
+import { PlatformLinkCard } from "@/components/retreats/PlatformLinkCard";
 import { LockControl } from "@/components/retreats/LockControl";
 import { OwnerControl } from "@/components/retreats/OwnerControl";
 import { CodedTransactionsTable, type CodedTransactionRow } from "@/components/retreats/CodedTransactionsTable";
@@ -84,6 +85,8 @@ export default async function RetreatDetailPage({
       <CategoryBreakdownReport rows={(codedTransactions ?? []) as unknown as CodedTransactionRow[]} />
 
       <CodedTransactionsTable rows={(codedTransactions ?? []) as unknown as CodedTransactionRow[]} />
+
+      <PlatformLinkCard retreatId={id} />
     </div>
   );
 }

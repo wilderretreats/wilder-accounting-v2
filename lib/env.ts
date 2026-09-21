@@ -35,3 +35,26 @@ export function getEnv() {
   }
   return parsed.data;
 }
+
+const platformEnvSchema = z.object({
+  PLATFORM_SUPABASE_URL: z.string().url(),
+  PLATFORM_SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+});
+
+/**
+ * Separate from getEnv() so pages that don't touch the retreat-linking
+ * feature aren't affected if these (feature-specific) vars are missing.
+ * Points at the SEPARATE Wilder Retreats Platform Supabase project.
+ */
+export function getPlatformEnv() {
+  const parsed = platformEnvSchema.safeParse(process.env);
+  if (!parsed.success) {
+    const missing = parsed.error.issues
+      .map((issue) => issue.path.join("."))
+      .join(", ");
+    throw new Error(
+      `Missing or invalid platform environment variables: ${missing}. See .env.local.example.`
+    );
+  }
+  return parsed.data;
+}
