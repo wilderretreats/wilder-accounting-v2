@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 import type { Role } from "@/types";
 
 const mainNav = [
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/dashboard", label: "Dashboard", adminOnly: true },
   { href: "/transactions", label: "Transactions" },
-  { href: "/transactions/overhead", label: "Overhead Transactions" },
+  { href: "/transactions/overhead", label: "Overhead Transactions", adminOnly: true },
   { href: "/clients", label: "Clients" },
   { href: "/retreats", label: "Retreats" },
   { href: "/owners", label: "Owners" },

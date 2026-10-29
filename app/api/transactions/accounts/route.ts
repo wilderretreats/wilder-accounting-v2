@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthedProfile } from "@/lib/auth";
+import { getAuthedProfile, hasRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 // account_label is free text (see lib/accounts.ts) -- there's no canonical
@@ -11,6 +11,9 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const scope = url.searchParams.get("scope") === "overhead" ? "overhead" : "cogs";
+  if (scope === "overhead" && !hasRole(authed.profile, ["admin"])) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase

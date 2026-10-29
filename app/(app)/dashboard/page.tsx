@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { isOwner, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getCategoryMonthlyBreakdown, getExpectedRetreatFinancials, getMonthlyPnl } from "@/lib/reports/queries";
@@ -8,6 +9,10 @@ import { formatCurrency, formatPercent, formatMonth } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const authed = await requireProfile();
+  // Company-wide P&L figures are admin-only. Everyone lands here after
+  // sign-in (and on any requireRole bounce), so send other roles to their
+  // working page instead of a 403.
+  if (authed.profile.role !== "admin") redirect("/transactions");
   const viewerIsOwner = isOwner(authed);
   const supabase = await createClient();
 

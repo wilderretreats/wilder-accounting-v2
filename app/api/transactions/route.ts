@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAuthedProfile } from "@/lib/auth";
+import { getAuthedProfile, hasRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 import { shapeTransactionWithCoding, type RawTransactionWithCodings } from "@/lib/transactions/shape";
@@ -29,6 +29,9 @@ export async function GET(request: Request) {
   // 'cogs' (default) is the shared revenue/COGS workspace; 'overhead' is its
   // own separate list -- these never overlap, by construction of the filter.
   const scope = url.searchParams.get("scope") === "overhead" ? "overhead" : "cogs";
+  if (scope === "overhead" && !hasRole(authed.profile, ["admin"])) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 200), 1000);
   const offset = Number(url.searchParams.get("offset") ?? 0);
 
@@ -98,6 +101,9 @@ export async function POST(request: Request) {
   const parsed = manualTransactionSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  if (parsed.data.isOverhead && !hasRole(authed.profile, ["admin"])) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const supabase = await createClient();

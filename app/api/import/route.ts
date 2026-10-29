@@ -17,6 +17,9 @@ export async function POST(request: Request) {
   const accountLabel = String(formData.get("accountLabel") ?? "").trim();
   const replaceAll = formData.get("replaceAll") === "true";
   const isOverhead = formData.get("isOverhead") === "true";
+  if (isOverhead && !hasRole(authed.profile, ["admin"])) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file uploaded" }, { status: 400 });

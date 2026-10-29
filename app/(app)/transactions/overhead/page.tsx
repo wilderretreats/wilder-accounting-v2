@@ -1,4 +1,4 @@
-import { requireProfile } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { TransactionsClient } from "@/components/transactions/TransactionsClient";
 
 export default async function OverheadTransactionsPage({
@@ -8,7 +8,8 @@ export default async function OverheadTransactionsPage({
 }) {
   const { coded } = await searchParams;
   const initialCoded = coded === "uncoded" || coded === "coded" ? coded : "all";
-  const { profile } = await requireProfile();
+  // Overhead (payroll, rent, owner costs) is admin-only.
+  const { profile } = await requireRole(["admin"]);
 
   return (
     <div className="flex flex-col gap-4">
