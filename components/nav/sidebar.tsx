@@ -60,6 +60,12 @@ export function Sidebar({
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    // With shared sign-in on, also end the Wilder Dashboard session, or the next page load signs back in.
+    const signinUrl = process.env.NEXT_PUBLIC_SIGNIN_URL;
+    if (signinUrl) {
+      window.location.href = `${signinUrl}?signout=1`;
+      return;
+    }
     router.push("/login");
     router.refresh();
   }
