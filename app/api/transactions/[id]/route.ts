@@ -31,9 +31,21 @@ const patchSchema = z
     description: z.string().min(1).optional(),
     accountLabel: z.string().trim().min(1).max(100).nullable().optional(),
     pending: z.boolean().optional(),
+    /** Manual transactions only -- see edit_manual_transaction (migration 022). */
+    postedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    amount: z
+      .number()
+      .finite()
+      .refine((n) => n !== 0, "Amount can't be zero")
+      .optional(),
   })
   .refine(
-    (v) => v.description !== undefined || v.accountLabel !== undefined || v.pending !== undefined,
+    (v) =>
+      v.description !== undefined ||
+      v.accountLabel !== undefined ||
+      v.pending !== undefined ||
+      v.postedDate !== undefined ||
+      v.amount !== undefined,
     { message: "Nothing to update" }
   );
 
@@ -54,6 +66,51 @@ export async function PATCH(
   }
 
   const supabase = await createClient();
+
+  // Date/amount edits go through one RPC so a coded transaction's coding
+  // amount moves with it atomically (codings must always sum to the
+  // transaction amount). The RPC also enforces manual-only and the
+  // locked-retreat rule.
+  if (parsed.data.postedDate !== undefined || parsed.data.amount !== undefined) {
+    if (parsed.data.accountLabel !== undefined || parsed.data.pending !== undefined) {
+      return NextResponse.json(
+        { error: "Edit date/amount separately from account or pending" },
+        { status: 400 }
+      );
+    }
+
+    const { data: before } = await supabase
+      .from("transactions")
+      .select("description, posted_date, amount")
+      .eq("id", id)
+      .single();
+
+    const { data, error } = await supabase.rpc("edit_manual_transaction", {
+      p_transaction_id: id,
+      p_description: parsed.data.description ?? null,
+      p_posted_date: parsed.data.postedDate ?? null,
+      p_amount: parsed.data.amount !== undefined ? Math.round(parsed.data.amount * 100) / 100 : null,
+      p_actor_id: authed.user.id,
+    });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    await writeAuditLog({
+      actorId: authed.user.id,
+      action: "transaction.edited",
+      entityType: "transaction",
+      entityId: id,
+      before,
+      after: {
+        description: data.description,
+        posted_date: data.posted_date,
+        amount: data.amount,
+      },
+    });
+
+    return NextResponse.json({ transaction: data });
+  }
+
   const { data: before } = await supabase
     .from("transactions")
     .select("description, account_label, pending")

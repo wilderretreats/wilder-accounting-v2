@@ -11,9 +11,13 @@ import type { CategoryType, TransactionWithCoding } from "@/types";
 interface CodingPanelProps {
   transaction: TransactionWithCoding;
   canDelete: boolean;
+  /** Description/date/amount editing -- manual transactions only, enforced again server-side. */
+  canEdit: boolean;
   onClose: () => void;
   onSaved: () => void;
   onDeleted: () => void;
+  /** Refreshes the list behind the panel after an edit, without closing the panel. */
+  onEdited: () => void;
 }
 
 interface SplitRow {
@@ -41,7 +45,28 @@ function centsToInput(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
-export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDeleted }: CodingPanelProps) {
+export function CodingPanel({
+  transaction,
+  canDelete,
+  canEdit,
+  onClose,
+  onSaved,
+  onDeleted,
+  onEdited,
+}: CodingPanelProps) {
+  // Local copy of the editable fields, so an in-panel edit shows (and the
+  // split math uses) the new values without closing the panel.
+  const [txn, setTxn] = useState({
+    description: transaction.description,
+    postedDate: transaction.posted_date,
+    amount: transaction.amount,
+  });
+  const [editing, setEditing] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const [splits, setSplits] = useState<SplitRow[]>(() => {
     if (transaction.codings.length === 0) {
       return [
@@ -75,7 +100,7 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
 
   const accountDirty = accountLabel.trim() !== (accountSaved ?? "");
 
-  const txnCents = Math.round(transaction.amount * 100);
+  const txnCents = Math.round(txn.amount * 100);
   const splitCents = splits.map((s) => toCents(s.amountInput));
   const sumCents = splitCents.reduce((sum, c) => sum + c, 0);
   const remainingCents = txnCents - sumCents;
@@ -133,6 +158,69 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
     // closes this whole panel, which would be a jarring surprise for someone
     // who just fixed the account and still wants to code the category next.
     setAccountSaved(trimmed || null);
+  }
+
+  function startEdit() {
+    setError(null);
+    setEditDescription(txn.description);
+    setEditDate(txn.postedDate);
+    setEditAmount(txn.amount.toFixed(2));
+    setEditing(true);
+  }
+
+  async function handleSaveEdit() {
+    setError(null);
+    const description = editDescription.trim();
+    if (!description) {
+      setError("Enter a description.");
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(editDate)) {
+      setError("Enter a valid date.");
+      return;
+    }
+    const amountCents = toCents(editAmount);
+    if (!editAmount.trim() || Number.isNaN(Number(editAmount)) || amountCents === 0) {
+      setError("Enter a non-zero amount.");
+      return;
+    }
+    const amountChanged = amountCents !== Math.round(txn.amount * 100);
+    if (amountChanged && transaction.codings.length > 1) {
+      setError(
+        "This transaction is split. Combine it into one coding and save, then change the amount and re-split."
+      );
+      return;
+    }
+
+    setSavingEdit(true);
+    const res = await fetch(`/api/transactions/${transaction.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description, postedDate: editDate, amount: amountCents / 100 }),
+    });
+    const data = await res.json();
+    setSavingEdit(false);
+
+    if (!res.ok) {
+      setError(typeof data.error === "string" ? data.error : "Failed to save changes.");
+      return;
+    }
+
+    const newAmount = Number(data.transaction.amount);
+    setTxn({
+      description: data.transaction.description,
+      postedDate: data.transaction.posted_date,
+      amount: newAmount,
+    });
+    // A single coding row (or the uncoded starter row) always carries the
+    // full amount -- keep it in step so the split total still balances.
+    if (amountChanged) {
+      setSplits((prev) =>
+        prev.length === 1 ? [{ ...prev[0], amountInput: newAmount.toFixed(2) }] : prev
+      );
+    }
+    setEditing(false);
+    onEdited();
   }
 
   async function handleTogglePending(next: boolean) {
@@ -226,17 +314,72 @@ export function CodingPanel({ transaction, canDelete, onClose, onSaved, onDelete
           </button>
         </div>
 
-        <div className="rounded-md bg-zinc-50 p-3 text-sm">
-          <p className="font-medium text-zinc-900">{transaction.description}</p>
-          <p className="mt-1 text-zinc-500">{formatDate(transaction.posted_date)}</p>
-          <p
-            className={`mt-1 text-base font-semibold ${
-              transaction.amount < 0 ? "text-red-600" : "text-emerald-700"
-            }`}
-          >
-            {formatCurrency(transaction.amount)}
-          </p>
-        </div>
+        {editing ? (
+          <div className="flex flex-col gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-700">Description</label>
+              <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium text-zinc-700">Date</label>
+                <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium text-zinc-700">Amount</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500">
+              Negative for money out, positive for money in.
+              {transaction.codings.length === 1 && " The coding amount updates to match."}
+            </p>
+            <div className="flex gap-2">
+              <Button type="button" onClick={handleSaveEdit} disabled={savingEdit}>
+                {savingEdit ? "Saving…" : "Save changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setEditing(false);
+                  setError(null);
+                }}
+                disabled={savingEdit}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-md bg-zinc-50 p-3 text-sm">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-medium text-zinc-900">{txn.description}</p>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  className="shrink-0 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:underline"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            <p className="mt-1 text-zinc-500">{formatDate(txn.postedDate)}</p>
+            <p
+              className={`mt-1 text-base font-semibold ${
+                txn.amount < 0 ? "text-red-600" : "text-emerald-700"
+              }`}
+            >
+              {formatCurrency(txn.amount)}
+            </p>
+          </div>
+        )}
 
         <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           <input

@@ -16,6 +16,11 @@ type CodedFilter = "all" | "coded" | "uncoded";
 const PAGE_SIZE = 200;
 
 /** Ops/ops_manager can delete transactions only when they entered them by hand -- admin can delete any. */
+/** Editing description/date/amount: manually entered transactions only, for the roles that can update transactions. */
+function canEditTransaction(role: Role, transaction: TransactionWithCoding): boolean {
+  return (role === "admin" || role === "ops" || role === "ops_manager") && transaction.source === "manual";
+}
+
 function canDeleteTransaction(role: Role, transaction: TransactionWithCoding): boolean {
   if (role === "admin") return true;
   if (role === "ops" || role === "ops_manager") return transaction.source === "manual";
@@ -274,7 +279,9 @@ export function TransactionsClient({
         <CodingPanel
           transaction={activeTransaction}
           canDelete={canDeleteTransaction(role, activeTransaction)}
+          canEdit={canEditTransaction(role, activeTransaction)}
           onClose={() => setActiveTransaction(null)}
+          onEdited={() => loadTransactions()}
           onSaved={() => {
             setActiveTransaction(null);
             loadTransactions();
