@@ -84,7 +84,11 @@ export default async function RetreatDetailPage({
 
       <CategoryBreakdownReport rows={(codedTransactions ?? []) as unknown as CodedTransactionRow[]} />
 
-      <CodedTransactionsTable rows={(codedTransactions ?? []) as unknown as CodedTransactionRow[]} />
+      <CodedTransactionsTable
+        rows={(codedTransactions ?? []) as unknown as CodedTransactionRow[]}
+        retreatName={retreat.name}
+        clientName={retreat.client?.name ?? null}
+      />
 
       <PlatformLinkCard retreatId={id} />
     </div>

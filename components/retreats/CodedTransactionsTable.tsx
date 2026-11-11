@@ -4,12 +4,15 @@ import { useMemo, useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { downloadRetreatCsv, printRetreatPdf } from "./exportRetreatTransactions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Category, Transaction } from "@/types";
 
 export interface CodedTransactionRow {
   id: string;
   amount: number;
+  comment: string | null;
   category: Category | null;
   transaction: Transaction | null;
 }
@@ -17,7 +20,15 @@ export interface CodedTransactionRow {
 type SortKey = "date" | "description" | "category" | "amount";
 type SortDir = "asc" | "desc";
 
-export function CodedTransactionsTable({ rows }: { rows: CodedTransactionRow[] }) {
+export function CodedTransactionsTable({
+  rows,
+  retreatName,
+  clientName,
+}: {
+  rows: CodedTransactionRow[];
+  retreatName: string;
+  clientName: string | null;
+}) {
   const [categoryId, setCategoryId] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -51,6 +62,15 @@ export function CodedTransactionsTable({ rows }: { rows: CodedTransactionRow[] }
     });
   }, [filtered, sortKey, sortDir]);
 
+  function exportInfo() {
+    const filterName = categories.find(([id]) => id === categoryId)?.[1];
+    return {
+      retreatName,
+      clientName,
+      filterLabel: filterName ? `Category: ${filterName}` : null,
+    };
+  }
+
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -64,6 +84,7 @@ export function CodedTransactionsTable({ rows }: { rows: CodedTransactionRow[] }
     <Card>
       <CardHeader className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-zinc-900">Coded transactions</h2>
+        <div className="flex flex-wrap items-center gap-2">
         <Select
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
@@ -76,6 +97,21 @@ export function CodedTransactionsTable({ rows }: { rows: CodedTransactionRow[] }
             </option>
           ))}
         </Select>
+          <Button
+            variant="secondary"
+            disabled={sorted.length === 0}
+            onClick={() => downloadRetreatCsv(sorted, exportInfo())}
+          >
+            Download CSV
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={sorted.length === 0}
+            onClick={() => printRetreatPdf(sorted, exportInfo())}
+          >
+            Download PDF
+          </Button>
+        </div>
       </CardHeader>
       <CardBody className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -104,6 +140,7 @@ export function CodedTransactionsTable({ rows }: { rows: CodedTransactionRow[] }
                 onSort={toggleSort}
                 align="right"
               />
+              <th className="pb-2 pl-4">Comment</th>
             </tr>
           </thead>
           <tbody>
@@ -130,11 +167,12 @@ export function CodedTransactionsTable({ rows }: { rows: CodedTransactionRow[] }
                 >
                   {formatCurrency(c.amount)}
                 </td>
+                <td className="max-w-xs py-2 pl-4 text-zinc-500">{c.comment}</td>
               </tr>
             ))}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-6 text-center text-zinc-400">
+                <td colSpan={5} className="py-6 text-center text-zinc-400">
                   {rows.length === 0
                     ? "No transactions coded to this retreat yet."
                     : "No transactions match this category."}
