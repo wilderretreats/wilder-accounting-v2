@@ -113,7 +113,15 @@ export function CodingPanel({
     if (splitCents[i] === 0) return "Amount can't be zero.";
     return null;
   });
-  const canSave = remainingCents === 0 && rowIssues.every((issue) => issue === null);
+  // On an editable (manual) transaction with a single coding, typing a new
+  // amount into the coding is how people naturally adjust a placeholder --
+  // so instead of blocking on "Remaining", saving moves the transaction
+  // amount to match (via the same edit_manual_transaction path as Edit).
+  // Split transactions still have to balance.
+  const amountFollowsCoding =
+    canEdit && splits.length === 1 && remainingCents !== 0 && splitCents[0] !== 0;
+  const canSave =
+    (remainingCents === 0 || amountFollowsCoding) && rowIssues.every((issue) => issue === null);
 
   function updateRow(key: string, patch: Partial<SplitRow>) {
     setSplits((prev) => prev.map((s) => (s.key === key ? { ...s, ...patch } : s)));
@@ -249,6 +257,24 @@ export function CodingPanel({
     }
 
     setSaving(true);
+
+    if (amountFollowsCoding) {
+      const amountRes = await fetch(`/api/transactions/${transaction.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: splitCents[0] / 100 }),
+      });
+      const amountData = await amountRes.json();
+      if (!amountRes.ok) {
+        setSaving(false);
+        setError(
+          typeof amountData.error === "string" ? amountData.error : "Failed to update the amount."
+        );
+        return;
+      }
+      setTxn((prev) => ({ ...prev, amount: Number(amountData.transaction.amount) }));
+    }
+
     const res = await fetch(`/api/transactions/${transaction.id}/coding`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -487,21 +513,29 @@ export function CodingPanel({
             <Button type="button" variant="secondary" onClick={addSplit}>
               + Add split
             </Button>
-            <span
-              className={`text-sm font-medium ${
-                remainingCents === 0 ? "text-emerald-700" : "text-amber-700"
-              }`}
-            >
-              Remaining: {formatCurrency(remainingCents / 100)}
-            </span>
+            {!amountFollowsCoding && (
+              <span
+                className={`text-sm font-medium ${
+                  remainingCents === 0 ? "text-emerald-700" : "text-amber-700"
+                }`}
+              >
+                Remaining: {formatCurrency(remainingCents / 100)}
+              </span>
+            )}
           </div>
+          {amountFollowsCoding && (
+            <p className="text-sm text-zinc-600">
+              Saving will change this transaction&apos;s amount from {formatCurrency(txn.amount)} to{" "}
+              <span className="font-medium">{formatCurrency(splitCents[0] / 100)}</span>.
+            </p>
+          )}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="mt-auto flex gap-2 pt-4">
           <Button onClick={handleSave} disabled={!canSave || saving || deleting} className="flex-1">
-            {saving ? "Saving…" : "Save coding"}
+            {saving ? "Saving…" : amountFollowsCoding ? "Save coding & amount" : "Save coding"}
           </Button>
           {transaction.codings.length > 0 && (
             <Button variant="danger" onClick={handleUncode} disabled={saving || deleting}>

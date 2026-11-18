@@ -23,24 +23,25 @@
 -- (admin/ops/ops_manager) gates it exactly as if the caller ran the UPDATE
 -- directly.
 
-create function edit_manual_transaction(
+create or replace function public.edit_manual_transaction(
   p_transaction_id uuid,
   p_description text,
   p_posted_date date,
   p_amount numeric(12,2),
   p_actor_id uuid
 )
-returns transactions
+returns public.transactions
 language plpgsql
 security invoker
+set search_path = public
 as $$
 declare
-  v_txn transactions;
+  v_txn public.transactions;
   v_coding_count integer;
   v_new_amount numeric(12,2);
 begin
   select * into v_txn
-  from transactions
+  from public.transactions
   where id = p_transaction_id and is_deleted_by_source = false
   for update;
 
@@ -54,8 +55,8 @@ begin
 
   if exists (
     select 1
-    from transaction_codings tc
-    join retreat_locks rl on rl.retreat_id = tc.retreat_id and rl.unlocked_at is null
+    from public.transaction_codings tc
+    join public.retreat_locks rl on rl.retreat_id = tc.retreat_id and rl.unlocked_at is null
     where tc.transaction_id = p_transaction_id
   ) then
     raise exception 'This transaction is coded to a locked retreat. Unlock the retreat before editing it.';
@@ -67,13 +68,13 @@ begin
   end if;
 
   select count(*) into v_coding_count
-  from transaction_codings where transaction_id = p_transaction_id;
+  from public.transaction_codings where transaction_id = p_transaction_id;
 
   if v_new_amount <> v_txn.amount and v_coding_count > 1 then
     raise exception 'This transaction is split across % codings. Combine it into one coding before changing the amount, then re-split.', v_coding_count;
   end if;
 
-  update transactions set
+  update public.transactions set
     description = coalesce(nullif(btrim(p_description), ''), description),
     posted_date = coalesce(p_posted_date, posted_date),
     amount = v_new_amount
@@ -81,7 +82,7 @@ begin
   returning * into v_txn;
 
   if v_coding_count = 1 then
-    update transaction_codings set
+    update public.transaction_codings set
       amount = v_new_amount,
       updated_by = p_actor_id,
       updated_at = now()
@@ -93,4 +94,4 @@ begin
 end;
 $$;
 
-grant execute on function edit_manual_transaction(uuid, text, date, numeric, uuid) to authenticated;
+grant execute on function public.edit_manual_transaction(uuid, text, date, numeric, uuid) to authenticated;
